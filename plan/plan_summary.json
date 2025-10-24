@@ -1,0 +1,14 @@
+{
+  "estimated_trials": 18,
+  "estimated_gpu_hours": 8.218,
+  "estimated_duration_sec": 29584,
+  "estimated_cost_usd": 28.76,
+  "space_reduction_rate": 0.0,
+  "assumptions": [
+    "sec_per_trial~1643.6",
+    "gpu_share=1.0",
+    "gpu_type=A100",
+    "usd_per_gpu_hour=3.5",
+    "invalid_table=ignored(Phase1-min)"
+  ]
+}
