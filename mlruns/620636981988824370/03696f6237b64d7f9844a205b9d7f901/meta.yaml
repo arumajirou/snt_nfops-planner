@@ -1,0 +1,14 @@
+artifact_uri: file:///mnt/e/env/ts/datas/ops/snt_nfops-planner/mlruns/620636981988824370/03696f6237b64d7f9844a205b9d7f901/artifacts
+end_time: 1761320646289
+entry_point_name: ''
+experiment_id: '620636981988824370'
+lifecycle_stage: active
+run_id: 03696f6237b64d7f9844a205b9d7f901
+run_name: planning.dry_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761320646285
+status: 3
+tags: []
+user_id: az

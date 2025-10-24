@@ -1,5 +1,3 @@
-import pytest
-pytestmark = pytest.mark.xfail(reason="CLI側の安全実装に置換予定（暫定で無効化）", strict=False)
 
 # -*- coding: utf-8 -*-
 import os, json, subprocess, sys, pathlib, shlex

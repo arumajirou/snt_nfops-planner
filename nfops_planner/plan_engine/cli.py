@@ -229,3 +229,16 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+    # === P12-01: importance quantiles validation (CLI > ENV > default) ===
+    from .quantiles_validator import parse_importance_quantiles, emit_warning_if_any, DEFAULT_QUANTILES
+    import os as _os
+    _q, _warn = parse_importance_quantiles(getattr(args, "importance_quantiles", None),
+                                           _os.environ.get("NFOPS_IMPORTANCE_QUANTILES"))
+    emit_warning_if_any(_warn)  # 無効入力なら stderr に警告を出す（落とさない）
+    try:
+        # 以降の互換性のため、args.* は CSV 文字列で保持しておく
+        args.importance_quantiles = ",".join(str(x) for x in _q)
+    except Exception:
+        pass
+    # 内部で tuple を参照したい箇所向けに、確定値を束ねておく（ある場合のみ使われる）
+    IMPORTANCE_QUANTILES = tuple(_q)
