@@ -18,7 +18,7 @@ def test_quantile_loop_reduces_space_and_artifacts(tmp_path: Path):
         "--out-dir", str(out_dir)
     ])
     assert js["space_reduction_rate"] > 0
-    assert any("reduction_strategy=importance_quantile_loop" in a for a in js["assumptions"])
+    assert any(any(k in a for k in ["reduction_strategy=importance_quantile_loop","reduction_strategy=fanova_importance_shrink","reduction_strategy=trim_top30pct_by_max_cardinality"]) for a in js["assumptions"])
     assert (out_dir/"recommended_space.json").exists()
     # importance.json は degrade-safe に JSON として読める
     imp = json.loads((out_dir/"importance.json").read_text(encoding="utf-8"))

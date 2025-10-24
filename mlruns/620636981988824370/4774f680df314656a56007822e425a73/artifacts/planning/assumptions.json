@@ -1,0 +1,11 @@
+{
+  "assumptions": [
+    "sec_per_trial~1740.3689245155197",
+    "gpu_share=1.0",
+    "gpu_type=A100",
+    "usd_per_gpu_hour=3.5",
+    "invalid_table=applied",
+    "sec_per_trial_source=learned",
+    "sec_per_trial_ci=[1740.3689245155197,1740.3689245155197]"
+  ]
+}
