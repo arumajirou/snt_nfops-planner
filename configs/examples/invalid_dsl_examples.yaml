@@ -1,0 +1,14 @@
+rules:
+  - model: "AutoNHITS"
+    any:
+      - { batch_size: "== 128", input_size: "== 72" }
+      - { batch_size: "== 64",  input_size: "== 72" }
+    reason: "avoid big batch with long input"
+  - regex: "^Auto.*"
+    conditions:
+      h: "in [0, 12]"
+    reason: "unsupported horizon"
+  - implies:
+      if:   { h: ">= 48" }
+      then: { batch_size: "<= 64" }
+    reason: "long horizon needs small batch"

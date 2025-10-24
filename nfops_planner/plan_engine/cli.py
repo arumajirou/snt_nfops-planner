@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-import argparse, json, sys, time, socket, subprocess
+import argparse, json, sys, time, socket, subprocess, os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 from .spec_loader import load_spec, naive_count_combos, SpecError
 from .cost_time_estimator import estimate_trial_seconds, aggregate_cost
 from .invalid_loader import compile_rules, count_with_invalid, expand_param_values
@@ -52,12 +52,20 @@ def main(argv=None) -> int:
         print(str(e), file=sys.stderr)
         return 2
 
+    # invalid ルール読み込み
     compiled = []
+    dsl_kinds = {"simple":0,"any":0,"regex":0,"implies":0}
     if args.invalid:
         p = Path(args.invalid)
         if p.exists():
             import yaml
             raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            # DSL 種別カウント
+            for r in raw.get("rules", []) if isinstance(raw.get("rules"), list) else []:
+                if r.get("any"): dsl_kinds["any"] += 1
+                if r.get("regex"): dsl_kinds["regex"] += 1
+                if r.get("implies"): dsl_kinds["implies"] += 1
+                if r.get("conditions"): dsl_kinds["simple"] += 1
             compiled = compile_rules(raw)
         else:
             print("E-SPEC-101 invalid file not found", file=sys.stderr)
@@ -65,7 +73,7 @@ def main(argv=None) -> int:
     combos = 0
     sec_hat = 0.0
     invalid_applied = False
-    modelwise = []
+    modelwise: List[Dict[str, Any]] = []
     for m in spec["_active_models"]:
         naive = naive_count_combos(m)
         if compiled:
@@ -74,48 +82,37 @@ def main(argv=None) -> int:
             valid, invalid, applied = naive, 0, False
         invalid_applied = invalid_applied or applied
         combos += valid
-        sec_hat = max(sec_hat, estimate_trial_seconds(m))
-        modelwise.append({"name": m.get("name",""), "naive": int(naive), "valid": int(valid), "invalid": int(invalid), "applied": bool(applied)})
+        sec_hat = max(sec_hat, estimate_trial_seconds(m))  # pessimistic per-trial
+        modelwise.append({"name": m.get("name",""), "naive": naive, "valid": valid, "invalid": invalid, "applied": applied})
 
-    # MLflow 過去runから学習できたら採用（保守的に max）
-    learned, lo, hi, source = predict_sec_per_trial(spec, sec_hat)
+    # 学習ベースの sec_per_trial があれば CI 付きで採用（保守的に max を取る）
+    learned, lo, hi, source = predict_sec_per_trial(spec, sec_hat if sec_hat>0 else 1.0)
     if source == "learned":
         sec_hat = max(sec_hat, learned)
 
     agg = aggregate_cost(combos, sec_hat, args.gpu_share, args.cost_unit)
-    time_budget_sec = _parse_time_budget(args.time_budget)
-
-    result: Dict[str, Any] = {
-        "estimated_trials": int(combos),
-        "estimated_gpu_hours": round(agg["gpu_hours"], 3),
-        "estimated_duration_sec": int(agg["total_sec"]),
-        "estimated_cost_usd": round(agg["cost_usd"], 2),
-        "space_reduction_rate": 0.0,
-        "assumptions": [
-            f"sec_per_trial~{sec_hat:.1f}",
-            f"gpu_share={args.gpu_share}",
-            f"gpu_type={args.gpu_type}",
-            f"usd_per_gpu_hour={args.cost_unit}",
-            "invalid_table=" + ("applied" if invalid_applied else "ignored"),
-        ],
-    }
+    result = dict(agg)
+    result.setdefault("assumptions", [])
+    result["assumptions"].append(f"sec_per_trial~{sec_hat}")
+    result["assumptions"].append(f"gpu_share={args.gpu_share}")
+    result["assumptions"].append(f"gpu_type={args.gpu_type}")
+    result["assumptions"].append(f"usd_per_gpu_hour={args.cost_unit}")
+    result["assumptions"].append("invalid_table=" + ("applied" if invalid_applied else "ignored"))
+    result["assumptions"].append(f"sec_per_trial_source={source}")
     if source == "learned":
-        result["assumptions"].append(f"sec_per_trial_ci=[{lo:.1f},{hi:.1f}]")
-        result["assumptions"].append("sec_per_trial_source=learned")
+        result["assumptions"].append(f"sec_per_trial_ci=[{lo},{hi}]")
 
-    outdir = Path(args.out_dir)
-    if not args.dry_run:
-        outdir.mkdir(parents=True, exist_ok=True)
+    # 予算判定
+    time_budget_sec = _parse_time_budget(args.time_budget)
+    status_note = "OK" if result["estimated_duration_sec"] <= time_budget_sec else "EXCEEDS_BUDGET"
 
-    status_note = "OK"
-    if agg["total_sec"] > time_budget_sec:
-        status_note = "EXCEEDS_BUDGET"
-        # まず fANOVA で縮約（なければフォールバック）
-        used_strategy = None
-        reduced_total = 0
+    # 予算を超えたら縮約案を作る（fANOVA→失敗なら 30%トリム）
+    used_strategy = None
+    if status_note == "EXCEEDS_BUDGET":
         recommended = {"models": []}
-        importance_dump = {}
+        importance_dump: Dict[str, Dict[str, float]] = {}
         fanova_ok = True
+        reduced_total = 0
         for m in spec["_active_models"]:
             try:
                 imps = compute_importances(m, estimate_trial_seconds)
@@ -124,13 +121,14 @@ def main(argv=None) -> int:
                 recommended["models"].append(m2)
                 reduced_total += naive_count_combos({"params": m2.get("params", {})})
             except Exception:
-                fanova_ok = False; break
-        if not fanova_ok or reduced_total >= combos:
-            # fallback: 最大カーディナリティ30%トリム
+                fanova_ok = False
+                break
+        if (not fanova_ok) or (reduced_total >= combos):
+            # フォールバック: 最大カーディナリティ 30% トリム
             reduced_total = 0
             recommended = {"models": []}
             for m in spec["_active_models"]:
-                params = m.get("params", {})
+                params = m.get("params", {}) or {}
                 if not params:
                     recommended["models"].append({"name": m.get("name",""), "params": params})
                     reduced_total += 1
@@ -147,55 +145,63 @@ def main(argv=None) -> int:
             used_strategy = "fanova_importance_shrink"
 
         result["space_reduction_rate"] = round(1.0 - (reduced_total / max(1, combos)), 3)
-        if not args.dry_run and args.emit_artifacts == "on":
-            (outdir / "recommended_space.json").write_text(json.dumps(recommended, ensure_ascii=False, indent=2), encoding="utf-8")
-            if importance_dump:
-                (outdir / "importance.json").write_text(json.dumps(importance_dump, ensure_ascii=False, indent=2), encoding="utf-8")
-
         result["assumptions"].append(f"status={status_note}")
         result["assumptions"].append(f"reduction_strategy={used_strategy}")
 
-    # アーティファクト出力
-    if not args.dry_run and args.emit_artifacts == "on":
-        (outdir / "plan_summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        # アーティファクト（dry-run では書かない）
+        if args.emit_artifacts == "on" and not args.dry_run:
+            out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "recommended_space.json").write_text(json.dumps(recommended, ensure_ascii=False, indent=2), encoding="utf-8")
+            # importance.json（空でも出して可視化を安定化）
+            (out_dir / "importance.json").write_text(json.dumps(importance_dump, ensure_ascii=False, indent=2), encoding="utf-8")
+    else:
+        result.setdefault("space_reduction_rate", 0.0)
 
-    # MLflow（存在時のみ）
-    run_id = emit_to_mlflow(result, {
+    # MLflow へ emit（失敗は無視）
+    params_for_ml = {
         "spec": args.spec, "invalid": args.invalid or "",
         "time_budget": args.time_budget, "max_combos": args.max_combos,
-        "gpu_type": args.gpu_type, "cost_unit": args.cost_unit, "gpu_share": args.gpu_share,
-        "status": status_note
-    })
-    if run_id:  # 画面＆ログにも載せる
-        result["mlflow_run_id"] = run_id
+        "gpu_type": args.gpu_type, "cost_unit": args.cost_unit,
+        "gpu_share": args.gpu_share, "status": status_note,
+    }
+    run_id = emit_to_mlflow(result, params_for_ml)
+    if run_id: result["mlflow_run_id"] = run_id
+
+    # アウトプット
+    if args.emit_artifacts == "on" and not args.dry_run:
+        out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "plan_summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # 構造化ログ(JSONL)
     try:
-        logline = {
-            "ts": time.time(),
-            "phase": "P1.2",
-            "status": status_note,
-            "host": socket.gethostname(),
-            "git_rev": subprocess.run(["git","rev-parse","--short","HEAD"], capture_output=True, text=True).stdout.strip() or "",
-            "versions": _versions(),
-            "mlflow_run_id": run_id or "",
-            "result": result,
-            "modelwise": modelwise,
-            "args": {
-                "spec": args.spec, "invalid": args.invalid or "",
-                "time_budget": args.time_budget, "max_combos": args.max_combos,
-                "gpu_type": args.gpu_type, "cost_unit": args.cost_unit, "gpu_share": args.gpu_share
-            }
-        }
-        if not args.dry_run and args.emit_artifacts == "on":
-            with (outdir / "planning.log.jsonl").open("a", encoding="utf-8") as f:
-                f.write(json.dumps(logline, ensure_ascii=False) + "\n")
+        rev = subprocess.check_output(["git","rev-parse","--short","HEAD"], text=True).strip()
     except Exception:
-        pass
+        rev = "unknown"
+    log = {
+        "ts": time.time(), "phase": "P1.2", "status": status_note,
+        "host": socket.gethostname(), "git_rev": rev,
+        "versions": _versions(), "mlflow_run_id": run_id or "",
+        "result": result, "modelwise": modelwise,
+        "args": {
+            "spec": args.spec, "invalid": args.invalid, "time_budget": args.time_budget,
+            "max_combos": args.max_combos, "gpu_type": args.gpu_type,
+            "cost_unit": args.cost_unit, "gpu_share": args.gpu_share
+        },
+        "dsl_kinds": dsl_kinds, "dsl_rules_count": sum(dsl_kinds.values())
+    }
+    if args.emit_artifacts == "on" and not args.dry_run:
+        out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+        with (out_dir / "planning.log.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(log, ensure_ascii=False) + "\n")
 
-    # 表示
+    # 出力形式
     if args.status_format == "text":
-        print(f"trials={result['estimated_trials']} cost_usd={result['estimated_cost_usd']} status={status_note}")
+        line = (f"trials={result['estimated_trials']} "
+                f"cost_usd={result['estimated_cost_usd']} "
+                f"status={status_note} "
+                f"budget={args.time_budget} "
+                f"strategy={used_strategy or '-'}").strip()
+        print(line)
     else:
         print(json.dumps(result, ensure_ascii=False))
     return 0
