@@ -54,3 +54,10 @@ def parse_importance_quantiles(arg_value: str | None, env_value: str | None) -> 
 def emit_warning_if_any(msg: str | None) -> None:
     if msg:
         print(msg, file=sys.stderr)
+    # list/tuple などで渡ってきた場合に CSV 文字列へ正規化
+    def _normalize_seq_to_csv(x):
+        if isinstance(x, (list, tuple)):
+            return ",".join(str(v) for v in x)
+        return x
+    arg_value = _normalize_seq_to_csv(arg_value)
+    env_value = _normalize_seq_to_csv(env_value)

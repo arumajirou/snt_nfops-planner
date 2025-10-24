@@ -241,4 +241,19 @@ if __name__ == "__main__":
     except Exception:
         pass
     # 内部で tuple を参照したい箇所向けに、確定値を束ねておく（ある場合のみ使われる）
+    # === P12-01: RELAX_IMPORTANCE_QUANTILES_ACTION (before parse_args) ===
+    # argparse が type=float/nargs=+ 等で事前に落とさないよう、該当 Action を緩和
+    try:
+        _acts = getattr(parser, "_actions", [])
+        for _a in _acts:
+            if "--importance-quantiles" in getattr(_a, "option_strings", ()):
+                _a.type = str  # まずは文字列で受ける
+                # 複数トークン設定だった場合でも1トークンとして受ける（CSV想定）
+                if getattr(_a, "nargs", None) not in (None, "?",):
+                    _a.nargs = None
+                break
+    except Exception:
+        # 失敗しても致命にはしない（後段のフォールバックで吸収）
+        pass
+
     IMPORTANCE_QUANTILES = tuple(_q)
