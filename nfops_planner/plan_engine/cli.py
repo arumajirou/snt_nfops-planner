@@ -45,7 +45,28 @@ def main(argv=None) -> int:
     ap.add_argument("--emit-artifacts", choices=["on","off"], default="on")
     ap.add_argument("--status-format", choices=["json","text"], default="json")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--importance-quantiles",
+        type=str,
+        default=None,
+        help="Comma-separated quantiles for importance levels (e.g., '0.2,0.5,0.8'). "
+             "Invalid values trigger warnings and fallback to defaults."
+    )
     args = ap.parse_args(argv)
+
+    # === P12-02: Validate and normalize importance-quantiles ===
+    if hasattr(args, 'importance_quantiles') and args.importance_quantiles is not None:
+        validated = parse_quantiles(
+            args.importance_quantiles,
+            env_name="NFOPS_IMPORTANCE_QUANTILES"
+        )
+        args.importance_quantiles = validated
+    else:
+        # Use default or environment variable
+        args.importance_quantiles = parse_quantiles(
+            "",  # empty string triggers env check
+            env_name="NFOPS_IMPORTANCE_QUANTILES"
+        )
 
     try:
         spec = load_spec(args.spec)
@@ -227,6 +248,65 @@ def main(argv=None) -> int:
         print(json.dumps(result, ensure_ascii=False))
     return 0
 
+
+def parse_quantiles(value_str, env_name="NFOPS_IMPORTANCE_QUANTILES"):
+    """
+    Parse and validate importance quantiles from string.
+    Returns validated tuple or default with warnings.
+    """
+    import sys
+    import os
+    
+    default = (0.2, 0.5, 0.8)
+    
+    # 環境変数チェック（value_strが空の場合）
+    if not value_str or value_str.strip() == "":
+        if env_name in os.environ:
+            value_str = os.environ[env_name]
+        else:
+            return default
+    
+    try:
+        # CSV形式でパース
+        parts = value_str.split(',')
+        quantiles = []
+        invalid_items = []
+        
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:  # 空要素
+                invalid_items.append(f"empty at position {i}")
+                continue
+            try:
+                q = float(part)
+                if not (0.0 <= q <= 1.0):
+                    invalid_items.append(f"'{part}' out of range [0,1]")
+                else:
+                    quantiles.append(q)
+            except ValueError:
+                invalid_items.append(f"'{part}' not a number")
+        
+        if invalid_items:
+            print(f"[nfops-planner] WARNING: Invalid importance-quantiles items: {', '.join(invalid_items)}", 
+                  file=sys.stderr)
+            print(f"[nfops-planner] WARNING: Using default quantiles: {default}", file=sys.stderr)
+            return default
+        
+        if not quantiles:
+            print(f"[nfops-planner] WARNING: No valid quantiles found, using defaults: {default}", 
+                  file=sys.stderr)
+            return default
+        
+        # 重複削除してソート
+        result = tuple(sorted(set(quantiles)))
+        return result
+        
+    except Exception as e:
+        print(f"[nfops-planner] WARNING: Error parsing importance-quantiles: {e}", file=sys.stderr)
+        print(f"[nfops-planner] WARNING: Using default quantiles: {default}", file=sys.stderr)
+        return default
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
     # === P12-01: importance quantiles validation (CLI > ENV > default) ===
@@ -241,3 +321,23 @@ if __name__ == "__main__":
     except Exception:
         pass
     # 内部で tuple を参照したい箇所向けに、確定値を束ねておく（ある場合のみ使われる）
+    # === P12-01: RELAX_IMPORTANCE_QUANTILES_ACTION (before parse_args) ===
+    # argparse が type=float/nargs=+ 等で事前に落とさないよう、該当 Action を緩和
+    try:
+        _acts = getattr(parser, "_actions", [])
+        for _a in _acts:
+            if "--importance-quantiles" in getattr(_a, "option_strings", ()):
+                _a.type = str  # まずは文字列で受ける
+                # 複数トークン設定だった場合でも1トークンとして受ける（CSV想定）
+                if getattr(_a, "nargs", None) not in (None, "?",):
+                    _a.nargs = None
+                # 事前バリデーションをすべて無効化（自前で検証するため）
+                if hasattr(_a, "choices"):
+                    _a.choices = None
+                    _a.nargs = None
+                break
+    except Exception:
+        # 失敗しても致命にはしない（後段のフォールバックで吸収）
+        pass
+
+    IMPORTANCE_QUANTILES = tuple(_q)
