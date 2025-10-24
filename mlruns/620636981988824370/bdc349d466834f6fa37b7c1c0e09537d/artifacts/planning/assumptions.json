@@ -1,0 +1,9 @@
+{
+  "assumptions": [
+    "sec_per_trial~1643.6",
+    "gpu_share=1.0",
+    "gpu_type=A100",
+    "usd_per_gpu_hour=3.5",
+    "invalid_table=ignored"
+  ]
+}
