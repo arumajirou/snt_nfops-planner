@@ -1,0 +1,17 @@
+﻿# ops/schemas/portal_config.yaml
+version: 1
+publisher:
+  target: "local-md"   # 将来: "backstage" | "confluence" | "notion" | "slack"
+  out_dir: "ops/portals"
+sources:
+  use_mlflow: false     # mlflow未導入環境でも動作する骨格
+  use_grafana: false
+  use_loki: false
+index:
+  engine: "jsonl"       # 将来: "faiss" | "opensearch" | "pgvector"
+masking:
+  pii_patterns:
+    - "(?i)[\\w.+-]+@[\\w-]+\\.[\\w.-]+"  # email
+    - "\\b\\d{3}-\\d{4}-\\d{4}\\b"        # jp phone sample
+metrics:
+  emit_mlflow: false
