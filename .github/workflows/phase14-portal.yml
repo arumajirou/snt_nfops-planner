@@ -16,10 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.10" }
+        with:
+          python-version: '3.10'
       - name: Run Phase14 portal
         env:
-          PHASE14_REASON: "ci"
+          PHASE14_REASON: 'ci'
         run: python scripts/phase14_run.py
       - name: Contract checks
         run: |
@@ -40,3 +41,22 @@ PY
           name: phase14-portal
           path: outputs/phase14/**
           if-no-files-found: error
+
+      - name: Install deps (phase14)
+        run: pip install -r requirements-phase14.txt
+
+      - name: Run with FAISS backend (and embedding)
+        env:
+          PHASE14_INDEX_BACKEND: faiss
+        run: python scripts/phase14_run.py
+
+      - name: Check artifacts (faiss or fallback)
+        run: |
+          set -e
+          test -n "$(ls -d outputs/phase14/* 2>/dev/null)"
+          # faiss.index があれば理想、無ければ index.jsonl が存在すれば契約OK
+          (ls outputs/phase14/*/faiss.index >/dev/null 2>&1) || test -f outputs/phase14/*/index.jsonl
+
+      - name: Show connectors log (should exist even if empty)
+        run: |
+          test -f outputs/phase14/*/connectors.log

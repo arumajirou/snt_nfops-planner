@@ -1,0 +1,9 @@
+﻿# requirements-phase14.txt
+# 目的: CIで必要最小の依存のみ導入（重いものは任意/フォールバック有）
+sentence-transformers==3.0.1
+faiss-cpu==1.8.0
+opensearch-py==2.7.1
+psycopg2-binary==2.9.9
+requests==2.32.3
+pyyaml==6.0.2
+numpy==1.26.4

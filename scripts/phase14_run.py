@@ -3,8 +3,16 @@ from __future__ import annotations
 import os, json, time
 from pathlib import Path
 from src.phase14.connectors.mlflow_connector import load_latest_phase13_artifacts
+from src.phase14.connectors.grafana_connector import fetch_panels
+from src.phase14.connectors.kibana_connector import fetch_saved_search
+from src.phase14.connectors.prometheus_connector import query_range
+from src.phase14.connectors.grafana_connector import fetch_panels
+from src.phase14.connectors.kibana_connector import fetch_saved_search
+from src.phase14.connectors.prometheus_connector import query_range
 from src.phase14.normalizer import normalize, save_json
 from src.phase14.summarizer import build_summary
+from src.phase14.llm_summarizer import summarize_with_llm
+from src.phase14.llm_summarizer import summarize_with_llm
 from src.phase14.indexer import build_index
 from src.phase14.publisher import publish_portal
 
@@ -17,6 +25,14 @@ def main():
 
     # 1) Source収集（最小：Phase13成果物があれば利用）
     p13 = load_latest_phase13_artifacts()
+    # 追加: 外部コネクタ（任意）。結果を connectors.log に記録
+    import json as _j
+    from src.phase14.connectors.grafana_connector import fetch_panels
+    from src.phase14.connectors.kibana_connector import fetch_saved_search
+    from src.phase14.connectors.prometheus_connector import query_range
+    _connlog = out_dir / "connectors.log"
+    _summary = {"grafana": fetch_panels(), "kibana": fetch_saved_search(), "prometheus": query_range("up")}
+    _connlog.write_text(_j.dumps(_summary, ensure_ascii=False, indent=2), encoding="utf-8")
     eval = json.loads(p13.get("eval.json","{}") or "{}") if "eval.json" in p13 else {}
     gate = json.loads(p13.get("gatekeeper.json","{}") or "{}") if "gatekeeper.json" in p13 else {}
     plan = json.loads(p13.get("plan_summary.json","{}") or "{}") if "plan_summary.json" in p13 else {}
@@ -40,6 +56,14 @@ def main():
         "smape_max": 0.20, "estimated_trials": est_trials,
         "estimated_gpu_hours": est_gpu, "ref_dir": p13.get("latest_dir","N/A")
     })
+    _ctx = {"batch_id": batch_id, "register": register, "smape": smape, "smape_max": 0.20, "estimated_trials": est_trials, "estimated_gpu_hours": est_gpu, "ref_dir": p13.get("latest_dir","N/A")}
+    _llm = summarize_with_llm(_ctx)
+    if _llm:
+        summary = _llm
+    _ctx = {"batch_id": batch_id, "register": register, "smape": smape, "smape_max": 0.20, "estimated_trials": est_trials, "estimated_gpu_hours": est_gpu, "ref_dir": p13.get("latest_dir","N/A")}
+    _llm = summarize_with_llm(_ctx)
+    if _llm:
+        summary = _llm
     (out_dir/"summary.md").write_text(summary, encoding="utf-8")
 
     # 4) インデックス
@@ -76,3 +100,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
