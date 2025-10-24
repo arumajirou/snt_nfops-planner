@@ -1,0 +1,19 @@
+﻿tests:
+  - name: "Phase13 artifacts skeleton"
+    preconditions:
+      - "Python 3.10+"
+    steps:
+      - "Run Prefect flow locally (or import-only if Prefect absent)"
+      - "List outputs/phase13/*/* files"
+      - "Validate presence of trigger_context.json, plan_summary.json"
+    expected:
+      - "Exit code 0"
+      - "At least 1 batch_id directory created"
+      - "Required files exist"
+  - name: "Matrix file contract"
+    steps:
+      - "Check matrix/production_retrain.yaml exists"
+      - "Schema minimally contains 'models' and params keys"
+    expected:
+      - "YAML parse OK"
+      - "'models' length >= 1"

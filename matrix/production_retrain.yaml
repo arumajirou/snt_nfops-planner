@@ -1,0 +1,26 @@
+﻿# matrix/production_retrain.yaml - Phase 13 本番向け厳選マトリクス
+# 目的: Warm Startの小さな空間（過去ベスト近傍＋重要ハイパラのみ可変）
+# 契約: Phase 13の BuildMatrix/S4-Plan で参照される（dry-run見積りも実施）
+version: 1
+models:
+  - name: AutoNBEATS
+    active: true
+    params:
+      h: [24]                # 本番ホライズン
+      val_rate: [16]         # 既定: 16
+      local_scaler: ["robust"]
+      backend: ["ray"]       # or "optuna"
+      num_samples: [4]       # 小さめの探索
+      precision: ["bf16","fp16"]  # 環境に応じて
+      learning_rate: [1e-3, 5e-4]
+  - name: AutoNHITS
+    active: true
+    params:
+      h: [24]
+      val_rate: [16]
+      local_scaler: ["robust"]
+      backend: ["ray"]
+      num_samples: [4]
+      precision: ["bf16","fp16"]
+      dropout: [0.0, 0.1]
+# 将来: capability_matrix による検証・除外を適用（Phase 1仕様に準拠）
