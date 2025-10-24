@@ -1,4 +1,4 @@
-﻿"""gatekeeper.py - 昇格条件チェック"""
+"""gatekeeper.py - 昇格条件チェック"""
 from loguru import logger
 from typing import Dict
 from nfops_promotion.models import GateDecision

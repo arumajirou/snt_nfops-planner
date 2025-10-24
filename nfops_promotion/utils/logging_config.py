@@ -1,4 +1,4 @@
-﻿"""logging_config.py - ログ設定"""
+"""logging_config.py - ログ設定"""
 from pathlib import Path
 from loguru import logger
 import sys

@@ -14,7 +14,6 @@ except ImportError:
 
 class TrainerFactory:
     """Trainer factory"""
-ECHO is on.
     @staticmethod
     def create(
         spec: TrainSpec,
@@ -23,7 +22,6 @@ ECHO is on.
     ) -> pl.Trainer:
         """Create Trainer with callbacks"""
         logger.info(f"Creating Trainer for {alias}")
-ECHO is on.
         # Checkpoint callback
         checkpoint_callback = ModelCheckpoint(
             dirpath=checkpoint_dir / alias,
@@ -33,7 +31,6 @@ ECHO is on.
             save_top_k=1,
             save_last=True
         )
-ECHO is on.
         # Early stopping
         early_stop_callback = EarlyStopping(
             monitor='val_loss',
@@ -41,13 +38,10 @@ ECHO is on.
             mode='min',
             verbose=True
         )
-ECHO is on.
         # Learning rate monitor
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
-ECHO is on.
         # Resource monitor
         resource_monitor = ResourceMonitor()
-ECHO is on.
         # Create trainer
         trainer = pl.Trainer(
             max_epochs=spec.max_epochs,
@@ -65,6 +59,5 @@ ECHO is on.
             log_every_n_steps=10,
             deterministic=True
         )
-ECHO is on.
         logger.success("Trainer created")
         return trainer

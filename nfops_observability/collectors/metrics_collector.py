@@ -1,4 +1,4 @@
-﻿"""metrics_collector.py - メトリクス収集"""
+"""metrics_collector.py - メトリクス収集"""
 import time
 import psutil
 from loguru import logger

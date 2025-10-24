@@ -1,4 +1,4 @@
-﻿"""Monitor カスタム例外"""
+"""Monitor カスタム例外"""
 
 
 class MonitorError(Exception):

@@ -1,4 +1,4 @@
-﻿"""cost_calculator.py - コスト計算"""
+"""cost_calculator.py - コスト計算"""
 from loguru import logger
 from typing import Dict
 from nfops_observability.models import CostMetrics

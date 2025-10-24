@@ -23,7 +23,6 @@ class CalibrationMetrics:
     pinball_losses: Dict[float, float]
     crps: Optional[float] = None
     nll: Optional[float] = None
-ECHO is on.
     def to_dict(self) -> Dict:
         return {
             "coverage_80": self.coverage_80,

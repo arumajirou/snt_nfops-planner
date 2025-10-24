@@ -1,4 +1,4 @@
-﻿"""test_cost_calculator.py"""
+"""test_cost_calculator.py"""
 import pytest
 from nfops_observability.calculators.cost_calculator import CostCalculator
 

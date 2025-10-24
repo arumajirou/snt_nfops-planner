@@ -1,4 +1,4 @@
-﻿"""calibration_monitor.py - カバレッジ監視"""
+"""calibration_monitor.py - カバレッジ監視"""
 import pandas as pd
 import numpy as np
 from loguru import logger

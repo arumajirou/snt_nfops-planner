@@ -1,4 +1,4 @@
-﻿"""window_builder.py - ウィンドウ構築"""
+"""window_builder.py - ウィンドウ構築"""
 import pandas as pd
 from loguru import logger
 from typing import Tuple

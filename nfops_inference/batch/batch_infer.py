@@ -1,4 +1,4 @@
-﻿"""batch_infer.py - バッチ推論"""
+"""batch_infer.py - バッチ推論"""
 import click
 import pandas as pd
 from pathlib import Path

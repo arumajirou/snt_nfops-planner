@@ -1,4 +1,4 @@
-"""reporter.py - ï]âøÉåÉ|Å[Égê∂ê¨"""
+"""reporter.py - Ë©ï‰æ°„É¨„Éù„Éº„ÉàÁîüÊàê"""
 import pandas as pd
 from pathlib import Path
 from loguru import logger
@@ -8,11 +8,9 @@ from nfops_eval.models import ComparisonResult, EvalMetrics
 
 class Reporter:
     """Evaluation report generator"""
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     def __init__(self, output_dir: Path):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     def generate_html(
         self,
         comparisons: List[ComparisonResult],
@@ -20,8 +18,7 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     ):
         """Generate HTML evaluation report"""
         logger.info("Generating evaluation report...")
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
-        html = """^<!DOCTYPE html^>
+        html = """<!DOCTYPE html>
 <html>
 <head>
     <title>Evaluation Report</title>
@@ -42,20 +39,16 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
 </head>
 <body>
     <h1>Model Evaluation Report</h1>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <div class="summary">
         <h2>Summary</h2>
-        <p><strong>Number of comparisons:</strong> """ + str^(len^(comparisons^)^) + """</p>
+        <p><strong>Number of comparisons:</strong> """ + str(len(comparisons)) + """</p>
         <p>Report generated successfully.</p>
     </div>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <h2>Model Comparisons</h2>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         for comp in comparisons:
             html += f"""
     <h3>{comp.model_a} vs {comp.model_b}</h3>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <table>
         <tr>
             <th>Metric</th>
@@ -78,7 +71,6 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
             <td>{comp.metrics_b.rmse:.2f}</td>
         </tr>
     </table>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <h4>Statistical Tests</h4>
     <table>
         <tr>
@@ -88,7 +80,6 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
             <th>Significant</th>
         </tr>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
             for test in comp.tests:
                 sig_class = ' class="significant"' if test.significant else ''
                 html += f"""
@@ -99,20 +90,15 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
             <td>{'Yes' if test.significant else 'No'}</td>
         </tr>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
             html += """
     </table>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         html += """
 </body>
 </html>"""
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         output_path = self.output_dir / filename
         output_path.write_text(html, encoding='utf-8')
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         logger.success(f"Report saved: {output_path}")
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     def save_comparison_table(
         self,
         comparisons: List[ComparisonResult],
@@ -120,7 +106,6 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     ):
         """Save comparison table"""
         records = []
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         for comp in comparisons:
             records.append({
                 'model_a': comp.model_a,
@@ -133,9 +118,7 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
                 'rmse_b': comp.metrics_b.rmse,
                 'rank': comp.rank
             })
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         df = pd.DataFrame(records)
         output_path = self.output_dir / filename
         df.to_parquet(output_path)
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         logger.success(f"Comparison table saved: {output_path}")

@@ -1,4 +1,4 @@
-﻿"""html_reporter.py - HTMLレポート生成"""
+"""html_reporter.py - HTMLレポート生成"""
 from pathlib import Path
 from loguru import logger
 from typing import List

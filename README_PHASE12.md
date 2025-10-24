@@ -1,4 +1,4 @@
-﻿# Phase 12 - Observability System (Resources, Cost, Audit)
+# Phase 12 - Observability System (Resources, Cost, Audit)
 
 ## 機能
 

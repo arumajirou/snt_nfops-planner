@@ -14,7 +14,6 @@ except ImportError:
 
 class TimeSeriesDataset(Dataset):
     """Time series dataset"""
-ECHO is on.
     def __init__(self, df: pd.DataFrame, h: int, input_size: int):
         """
         Args:
@@ -25,28 +24,21 @@ ECHO is on.
         self.df = df
         self.h = h
         self.input_size = input_size
-ECHO is on.
         # Group by series
         self.series_groups = list(df.groupby('unique_id'))
-ECHO is on.
     def __len__(self):
         return len(self.series_groups)
-ECHO is on.
     def __getitem__(self, idx):
         uid, group = self.series_groups[idx]
-ECHO is on.
         # Get y values
         y = group['y_scaled'].values if 'y_scaled' in group.columns else group['y'].values
-ECHO is on.
         # Simple sliding window
         if len(y) < self.input_size + self.h:
             # Pad if too short
             y = np.pad(y, (0, self.input_size + self.h - len(y)), mode='edge')
-ECHO is on.
         # Take last window
         hist = y[-self.input_size - self.h:-self.h]
         futr = y[-self.h:]
-ECHO is on.
         return {
             'hist': torch.FloatTensor(hist),
             'futr': torch.FloatTensor(futr)
@@ -55,7 +47,6 @@ ECHO is on.
 
 class TimeSeriesDataModule(pl.LightningDataModule):
     """Lightning DataModule for time series"""
-ECHO is on.
     def __init__(
         self,
         train_df: pd.DataFrame,
@@ -74,7 +65,6 @@ ECHO is on.
         self.input_size = input_size
         self.batch_size = batch_size
         self.num_workers = num_workers
-ECHO is on.
     def setup(self, stage: Optional[str] = None):
         """Setup datasets"""
         if stage == 'fit' or stage is None:
@@ -84,12 +74,10 @@ ECHO is on.
             self.val_dataset = TimeSeriesDataset(
                 self.val_df, self.h, self.input_size
             )
-ECHO is on.
         if stage == 'test' or stage is None:
             self.test_dataset = TimeSeriesDataset(
                 self.test_df, self.h, self.input_size
             )
-ECHO is on.
     def train_dataloader(self):
         return DataLoader(
             self.train_dataset,
@@ -98,7 +86,6 @@ ECHO is on.
             num_workers=self.num_workers,
             pin_memory=True
         )
-ECHO is on.
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset,
@@ -107,7 +94,6 @@ ECHO is on.
             num_workers=self.num_workers,
             pin_memory=True
         )
-ECHO is on.
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,
@@ -119,7 +105,6 @@ ECHO is on.
 
 class DatasetBuilder:
     """Dataset builder"""
-ECHO is on.
     @staticmethod
     def build(
         df: pd.DataFrame,
@@ -131,14 +116,11 @@ ECHO is on.
     ) -> TimeSeriesDataModule:
         """Build DataModule"""
         logger.info("Building DataModule...")
-ECHO is on.
         # Split data
         train_df = df[df['ds'] <= train_end]
         val_df = df[(df['ds'] > train_end) & (df['ds'] <= val_end)]
         test_df = df[df['ds'] > val_end]
-ECHO is on.
-        logger.info(f"Train: {len^(train_df^)}, Val: {len^(val_df^)}, Test: {len^(test_df^)}")
-ECHO is on.
+        logger.info(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
         return TimeSeriesDataModule(
             train_df=train_df,
             val_df=val_df,

@@ -1,4 +1,4 @@
-﻿"""test_circuit_breaker.py"""
+"""test_circuit_breaker.py"""
 import pytest
 from nfops_inference.core.circuit_breaker import CircuitBreaker, CircuitState
 

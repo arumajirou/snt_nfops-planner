@@ -9,7 +9,6 @@ from nfops_preprocess.exceptions import NonFiniteError
 
 class YTransformApplier:
     """Y変換適用"""
-ECHO is on.
     def __init__(self, y_type: str, window: int = None, period: int = None):
         """
         Args:
@@ -20,7 +19,6 @@ ECHO is on.
         self.y_type = y_type
         self.window = window
         self.period = period
-ECHO is on.
     def apply(
         self, 
         df: pd.DataFrame, 
@@ -28,13 +26,10 @@ ECHO is on.
     ) -> Tuple[pd.DataFrame, YTransformMeta]:
         """Apply transformation"""
         logger.info(f"Applying y_type={self.y_type}")
-ECHO is on.
         df = df.copy()
         series_states = []
-ECHO is on.
         if self.y_type == 'raw':
             df['y_transformed'] = df['y']
-ECHO is on.
         elif self.y_type == 'diff':
             df['y_transformed'] = df.groupby('unique_id')['y'].diff()
             # State: last_y
@@ -46,7 +41,6 @@ ECHO is on.
                     last_train_ds=last_row['ds'],
                     last_y=last_row['y']
                 ))
-ECHO is on.
         elif self.y_type == 'rolling_sum':
             if self.window is None:
                 raise ValueError("window is required for rolling_sum")
@@ -63,7 +57,6 @@ ECHO is on.
                     last_train_ds=last_row['ds'],
                     buffer=buffer
                 ))
-ECHO is on.
         elif self.y_type == 'cumsum':
             df['y_transformed'] = df.groupby('unique_id')['y'].cumsum()
             # State: base_cumsum
@@ -75,15 +68,12 @@ ECHO is on.
                     last_train_ds=last_row['ds'],
                     base_cumsum=last_row['y_transformed']
                 ))
-ECHO is on.
         else:
             raise ValueError(f"Unknown y_type: {self.y_type}")
-ECHO is on.
         # Check non-finite
         non_finite = df['y_transformed'].isna().sum() + np.isinf(df['y_transformed']).sum()
         if non_finite > 0:
             logger.warning(f"Non-finite values: {non_finite}")
-ECHO is on.
         meta = YTransformMeta(
             version="1.0.0",
             y_type=self.y_type,
@@ -92,6 +82,5 @@ ECHO is on.
             anchor_ds=split.train_end,
             series_state=series_states
         )
-ECHO is on.
         logger.success(f"Transform applied: {self.y_type}")
         return df, meta

@@ -1,4 +1,4 @@
-﻿"""Promotion カスタム例外"""
+"""Promotion カスタム例外"""
 
 
 class PromotionError(Exception):

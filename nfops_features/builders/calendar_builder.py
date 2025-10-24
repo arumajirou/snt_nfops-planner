@@ -6,7 +6,6 @@ from typing import List
 
 class CalendarBuilder:
     """Calendar feature builder"""
-ECHO is on.
     def __init__(self, features: List[str], locale: str = 'ja'):
         """
         Args:
@@ -15,17 +14,13 @@ ECHO is on.
         """
         self.features = features or []
         self.locale = locale
-ECHO is on.
     def build(self, df: pd.DataFrame) -> pd.DataFrame:
         """Build calendar features"""
-        logger.info(f"Building calendar features: {len^(self.features^)}")
-ECHO is on.
+        logger.info(f"Building calendar features: {len(self.features)}")
         df = df.copy()
-ECHO is on.
         # Ensure ds is datetime
         if not pd.api.types.is_datetime64_any_dtype(df['ds']):
             df['ds'] = pd.to_datetime(df['ds'])
-ECHO is on.
         for feat in self.features:
             if feat == 'dow':
                 df['cal_dow'] = df['ds'].dt.dayofweek
@@ -48,8 +43,6 @@ ECHO is on.
                 except ImportError:
                     logger.warning("jpholiday not installed, skipping jp_holiday")
                     df['cal_jp_holiday'] = 0
-ECHO is on.
             logger.debug(f"Created: cal_{feat}")
-ECHO is on.
-        logger.success(f"Built {len^(self.features^)} calendar features")
+        logger.success(f"Built {len(self.features)} calendar features")
         return df

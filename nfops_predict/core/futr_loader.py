@@ -7,7 +7,6 @@ from nfops_predict.exceptions import FutureCoverageError
 
 class FutrLoader:
     """Future exogenous variable loader"""
-ECHO is on.
     def __init__(self, h: int, freq: str = 'D'):
         """
         Args:
@@ -16,7 +15,6 @@ ECHO is on.
         """
         self.h = h
         self.freq = freq
-ECHO is on.
     def load(
         self, 
         futr_path: Path,
@@ -24,29 +22,24 @@ ECHO is on.
     ) -> pd.DataFrame:
         """Load and validate future exog"""
         logger.info(f"Loading future exog from {futr_path}")
-ECHO is on.
         # Load data
         if str(futr_path).endswith('.parquet'):
             df = pd.read_parquet(futr_path)
         else:
             df = pd.read_csv(futr_path, parse_dates=['ds'])
-ECHO is on.
         # Validate
         required_cols = ['unique_id', 'ds']
         missing = set(required_cols) - set(df.columns)
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
-ECHO is on.
         # Add scenario_id
         df['scenario_id'] = scenario_id
-ECHO is on.
         # Check coverage
         for uid, group in df.groupby('unique_id'):
             if len(group) < self.h:
                 logger.warning(
-                    f"Series {uid} has only {len^(group^)} points, "
+                    f"Series {uid} has only {len(group)} points, "
                     f"less than horizon {self.h}"
                 )
-ECHO is on.
-        logger.success(f"Loaded {len^(df^)} future records for scenario '{scenario_id}'")
+        logger.success(f"Loaded {len(df)} future records for scenario '{scenario_id}'")
         return df

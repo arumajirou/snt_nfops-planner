@@ -19,7 +19,6 @@ class FeatureCatalog:
     """Feature catalog metadata"""
     version: str
     features: List[Dict[str, Any]]
-ECHO is on.
     def to_dict(self) -> Dict:
         return {
             "version": self.version,

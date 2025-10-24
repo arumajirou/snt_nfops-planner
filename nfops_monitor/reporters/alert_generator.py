@@ -1,4 +1,4 @@
-﻿"""alert_generator.py - アラート生成"""
+"""alert_generator.py - アラート生成"""
 import json
 from pathlib import Path
 from datetime import datetime

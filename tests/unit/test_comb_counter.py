@@ -17,9 +17,7 @@ class TestCombCounter:
                 }
             ]
         )
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         counter = CombCounter()
         result = counter.count(spec, [])
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         assert result.total_combos == 6
         assert result.per_model['TestModel'] == 6

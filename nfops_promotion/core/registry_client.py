@@ -1,4 +1,4 @@
-﻿"""registry_client.py - Registry クライアント"""
+"""registry_client.py - Registry クライアント"""
 import json
 from pathlib import Path
 from loguru import logger

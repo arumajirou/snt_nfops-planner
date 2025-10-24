@@ -1,4 +1,4 @@
-﻿# Phase 11 - Monitoring System (Drift & Accuracy)
+# Phase 11 - Monitoring System (Drift & Accuracy)
 
 ## 機能
 

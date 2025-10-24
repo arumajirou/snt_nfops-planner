@@ -1,4 +1,4 @@
-﻿"""test_residual_monitor.py"""
+"""test_residual_monitor.py"""
 import pytest
 import pandas as pd
 import numpy as np

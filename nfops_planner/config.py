@@ -1,11 +1,11 @@
-"""設定管琁E""
+"""險ュ螳夂ョ。逅・""
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel, Field
 
 
 class PlannerConfig(BaseModel):
-    """プランナ�E設宁E""
+    """繝励Λ繝ウ繝翫・險ュ螳・""
     spec_dir: Path = Field(default=Path("data/specs"))
     output_dir: Path = Field(default=Path("plan"))
     log_dir: Path = Field(default=Path("logs"))

@@ -24,7 +24,6 @@ class FeatureImportance:
     method: str
     ci_low: Optional[float] = None
     ci_high: Optional[float] = None
-ECHO is on.
     def to_dict(self) -> Dict:
         return {
             "feature": self.feature,

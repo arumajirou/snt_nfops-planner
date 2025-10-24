@@ -1,4 +1,4 @@
-﻿"""sample_batch_input.py - サンプルバッチデータ生成"""
+"""sample_batch_input.py - サンプルバッチデータ生成"""
 import pandas as pd
 import numpy as np
 from pathlib import Path

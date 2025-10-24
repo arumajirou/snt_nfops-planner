@@ -1,4 +1,4 @@
-﻿"""audit_logger.py - 監査ログ"""
+"""audit_logger.py - 監査ログ"""
 import json
 from pathlib import Path
 from datetime import datetime

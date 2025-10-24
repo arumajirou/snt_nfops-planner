@@ -1,4 +1,4 @@
-﻿"""test_cache.py"""
+"""test_cache.py"""
 import pytest
 from nfops_inference.core.cache import SimpleCache
 

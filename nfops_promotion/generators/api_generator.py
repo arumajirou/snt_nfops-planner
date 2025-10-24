@@ -1,4 +1,4 @@
-﻿"""api_generator.py - API生成"""
+"""api_generator.py - API生成"""
 from pathlib import Path
 from loguru import logger
 from jinja2 import Environment, FileSystemLoader

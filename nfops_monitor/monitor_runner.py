@@ -1,4 +1,4 @@
-﻿"""monitor_runner.py - 監視実行CLI"""
+"""monitor_runner.py - 監視実行CLI"""
 import click
 import pandas as pd
 from pathlib import Path

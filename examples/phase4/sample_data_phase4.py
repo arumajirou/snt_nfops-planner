@@ -14,7 +14,6 @@ for sid in series_ids:
     trend = np.linspace(0, 20, len(dates))
     seasonal = 10 * np.sin(2 * np.pi * np.arange(len(dates)) / 7)
     noise = np.random.randn(len(dates)) * 5
-ECHO is on.
     for i, date in enumerate(dates):
         data.append({
             'unique_id': sid,
@@ -34,8 +33,8 @@ output_dir.mkdir(parents=True, exist_ok=True)
 df.to_parquet(output_dir / 'sample_train.parquet')
 df.to_csv(output_dir / 'sample_train.csv', index=False)
 
-print(f"Generated {len^(df^)} rows")
-print(f"Series: {df['unique_id'].nunique^(^)}")
-print(f"Date range: {df['ds'].min^(^)} to {df['ds'].max^(^)}")
-print(f"Columns: {list^(df.columns^)}")
+print(f"Generated {len(df)} rows")
+print(f"Series: {df['unique_id'].nunique()}")
+print(f"Date range: {df['ds'].min()} to {df['ds'].max()}")
+print(f"Columns: {list(df.columns)}")
 print(f"Saved to {output_dir}")

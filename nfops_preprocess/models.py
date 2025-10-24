@@ -10,7 +10,6 @@ class Split:
     train_end: datetime
     valid_end: Optional[datetime]
     test_end: datetime
-ECHO is on.
     def get_mask(self, ds_series):
         """Get boolean masks for each split"""
         train_mask = ds_series <= self.train_end
@@ -43,7 +42,6 @@ class YTransformMeta:
     period: Optional[int]
     anchor_ds: datetime
     series_state: List[SeriesState]
-ECHO is on.
     def to_dict(self) -> Dict:
         return {
             "version": self.version,

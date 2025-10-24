@@ -1,4 +1,4 @@
-﻿# Phase 10 - Production Inference System
+# Phase 10 - Production Inference System
 
 ## 機能
 

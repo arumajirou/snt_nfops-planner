@@ -1,4 +1,4 @@
-﻿# GPU pricing
+# GPU pricing
 gpu_types:
   v100:
     on_demand_usd_per_hour: 2.48

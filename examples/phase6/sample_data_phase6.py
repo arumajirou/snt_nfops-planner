@@ -14,7 +14,6 @@ for sid in series_ids:
     trend = np.linspace(0, 30, len(dates))
     seasonal = 15 * np.sin(2 * np.pi * np.arange(len(dates)) / 7)
     noise = np.random.randn(len(dates)) * 8
-ECHO is on.
     for i, date in enumerate(dates):
         value = base + trend[i] + seasonal[i] + noise[i]
         data.append({
@@ -46,6 +45,6 @@ scenarios_dir = output_dir / 'scenarios'
 scenarios_dir.mkdir(exist_ok=True)
 futr_df.to_csv(scenarios_dir / 'base.csv', index=False)
 
-print(f"Generated {len^(df^)} rows")
-print(f"Generated {len^(futr_df^)} future records")
+print(f"Generated {len(df)} rows")
+print(f"Generated {len(futr_df)} future records")
 print(f"Saved to {output_dir}")

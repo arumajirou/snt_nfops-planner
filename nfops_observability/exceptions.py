@@ -1,4 +1,4 @@
-﻿"""Observability カスタム例外"""
+"""Observability カスタム例外"""
 
 
 class ObservabilityError(Exception):

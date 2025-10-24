@@ -1,20 +1,20 @@
 # Phase 8 - XAI and Error Analysis
 
-## ‹@”\
+## æ©Ÿèƒ½
 
-- ErrorProfiler: ƒ[ƒXƒg—\‘ª‚Ì’Šo
-- ShapExplainer: SHAP’lŒvZ(üŒ`‹ß—)
-- PermutationExplainer: Permutationd—v“x
-- ƒf[ƒ^®—ñ: features/preds/actualsŒ‹‡
-- XAIƒŒƒ|[ƒg: HTMLo—Í
+- ErrorProfiler: ãƒ¯ãƒ¼ã‚¹ãƒˆäºˆæ¸¬ã®æŠ½å‡º
+- ShapExplainer: SHAPå€¤è¨ˆç®—(ç·šå½¢è¿‘ä¼¼)
+- PermutationExplainer: Permutationé‡è¦åº¦
+- ãƒ‡ãƒ¼ã‚¿æ•´åˆ—: features/preds/actualsçµåˆ
+- XAIãƒ¬ãƒãƒ¼ãƒˆ: HTMLå‡ºåŠ›
 
-## g—p•û–@
+## ä½¿ç”¨æ–¹æ³•
 
 ```bash
-# ƒTƒ“ƒvƒ‹ƒf[ƒ^¶¬
+# ã‚µãƒ³ãƒ—ãƒ«ãƒ‡ãƒ¼ã‚¿ç”Ÿæˆ
 python examples\phase8\sample_data_phase8.py
 
-# XAI•ªÍÀs
+# XAIåˆ†æå®Ÿè¡Œ
 python -m nfops_xai.xai_runner \
   --features examples\phase8\test_features.parquet \
   --preds examples\phase8\test_preds.parquet \
@@ -23,27 +23,27 @@ python -m nfops_xai.xai_runner \
   --topk-worst 50 \
   --out-dir artifacts\xai
 
-# ƒeƒXƒgÀs
+# ãƒ†ã‚¹ãƒˆå®Ÿè¡Œ
 pytest tests\phase8 -v
 ```
 
-## o—Í
+## å‡ºåŠ›
 
-- artifacts/xai/shap_values.parquet: SHAP’l
-- artifacts/xai/permutation_importance.parquet: Permutationd—v“x
-- artifacts/xai/worst_cases.parquet: ƒ[ƒXƒgƒP[ƒX
-- artifacts/xai/xai_report.html: XAIƒŒƒ|[ƒg
+- artifacts/xai/shap_values.parquet: SHAPå€¤
+- artifacts/xai/permutation_importance.parquet: Permutationé‡è¦åº¦
+- artifacts/xai/worst_cases.parquet: ãƒ¯ãƒ¼ã‚¹ãƒˆã‚±ãƒ¼ã‚¹
+- artifacts/xai/xai_report.html: XAIãƒ¬ãƒãƒ¼ãƒˆ
 
-## ƒƒgƒŠƒNƒX
+## ãƒ¡ãƒˆãƒªã‚¯ã‚¹
 
-- global_importance: ƒOƒ[ƒoƒ‹“Á’¥—Êd—v“x
-- local_explanations_count: ƒ[ƒJƒ‹à–¾”
-- xai_build_sec: ˆ—ŠÔ
-- worst_cases_analyzed: •ªÍÏ‚İƒ[ƒXƒgƒP[ƒX”
+- global_importance: ã‚°ãƒ­ãƒ¼ãƒãƒ«ç‰¹å¾´é‡é‡è¦åº¦
+- local_explanations_count: ãƒ­ãƒ¼ã‚«ãƒ«èª¬æ˜æ•°
+- xai_build_sec: å‡¦ç†æ™‚é–“
+- worst_cases_analyzed: åˆ†ææ¸ˆã¿ãƒ¯ãƒ¼ã‚¹ãƒˆã‚±ãƒ¼ã‚¹æ•°
 
-## ’ˆÓ–€
+## æ³¨æ„äº‹é …
 
-- SHAPÀ‘•‚ÍüŒ`‹ß—‚ÌŠÈˆÕ”Å
-- –{”ÔŠÂ‹«‚Å‚Í shap ƒ‰ƒCƒuƒ‰ƒŠ‚Ìg—p‚ğ„§
-- Permutation‚ÍÄ—\‘ª‚È‚µ‚ÌŠÈˆÕ”Å
-- Š®‘S”Å‚É‚ÍCaptum“‡‚ª•K—v
+- SHAPå®Ÿè£…ã¯ç·šå½¢è¿‘ä¼¼ã®ç°¡æ˜“ç‰ˆ
+- æœ¬ç•ªç’°å¢ƒã§ã¯ shap ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã®ä½¿ç”¨ã‚’æ¨å¥¨
+- Permutationã¯å†äºˆæ¸¬ãªã—ã®ç°¡æ˜“ç‰ˆ
+- å®Œå…¨ç‰ˆã«ã¯Captumçµ±åˆãŒå¿…è¦

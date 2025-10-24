@@ -1,4 +1,4 @@
-﻿"""conftest.py"""
+"""conftest.py"""
 import pytest
 from pathlib import Path
 

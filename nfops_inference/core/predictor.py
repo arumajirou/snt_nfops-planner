@@ -1,4 +1,4 @@
-﻿"""predictor.py - 予測エンジン"""
+"""predictor.py - 予測エンジン"""
 import numpy as np
 import pandas as pd
 from pathlib import Path

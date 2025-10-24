@@ -1,4 +1,4 @@
-﻿"""test_metrics_collector.py"""
+"""test_metrics_collector.py"""
 import pytest
 from nfops_observability.collectors.metrics_collector import MetricsCollector
 

@@ -1,22 +1,22 @@
 # Phase 7 - Evaluation and Statistical Testing
 
-## ‹@”\
+## æ©Ÿèƒ½
 
-- ƒf[ƒ^®—ñ: —\‘ª‚ÆÀ‘ª‚ÌŒ‹‡
-- w•WŒvZ: SMAPE/MAE/RMSE/MAPE
-- “ŒvŒŸ’è: Diebold-MarianoŒŸ’è
-- ”í•¢—¦ŒŸ’è: “ñ€ŒŸ’è
-- Œø‰Ê—Ê: Cliff's delta/A12/Hedges' g
-- ‘½d”äŠr•â³: BH/Holm–@
-- •]‰¿ƒŒƒ|[ƒg: HTMLo—Í
+- ãƒ‡ãƒ¼ã‚¿æ•´åˆ—: äºˆæ¸¬ã¨å®Ÿæ¸¬ã®çµåˆ
+- æŒ‡æ¨™è¨ˆç®—: SMAPE/MAE/RMSE/MAPE
+- çµ±è¨ˆæ¤œå®š: Diebold-Marianoæ¤œå®š
+- è¢«è¦†ç‡æ¤œå®š: äºŒé …æ¤œå®š
+- åŠ¹æœé‡: Cliff's delta/A12/Hedges' g
+- å¤šé‡æ¯”è¼ƒè£œæ­£: BH/Holmæ³•
+- è©•ä¾¡ãƒ¬ãƒãƒ¼ãƒˆ: HTMLå‡ºåŠ›
 
-## g—p•û–@
+## ä½¿ç”¨æ–¹æ³•
 
 ```bash
-# ƒTƒ“ƒvƒ‹ƒf[ƒ^¶¬
+# ã‚µãƒ³ãƒ—ãƒ«ãƒ‡ãƒ¼ã‚¿ç”Ÿæˆ
 python examples\phase7\sample_data_phase7.py
 
-# •]‰¿Às
+# è©•ä¾¡å®Ÿè¡Œ
 python -m nfops_eval.eval_runner \
   --preds examples\phase7\test_preds.parquet \
   --actuals examples\phase7\test_actuals.parquet \
@@ -24,17 +24,17 @@ python -m nfops_eval.eval_runner \
   --metrics SMAPE,MAE,RMSE \
   --out-dir eval
 
-# ƒeƒXƒgÀs
+# ãƒ†ã‚¹ãƒˆå®Ÿè¡Œ
 pytest tests\phase7 -v
 ```
 
-## o—Í
+## å‡ºåŠ›
 
-- eval/eval_report.html: •]‰¿ƒŒƒ|[ƒg
-- eval/tests.json: ŒŸ’èŒ‹‰Ê
-- eval/compare_table.parquet: ”äŠrƒe[ƒuƒ‹
+- eval/eval_report.html: è©•ä¾¡ãƒ¬ãƒãƒ¼ãƒˆ
+- eval/tests.json: æ¤œå®šçµæœ
+- eval/compare_table.parquet: æ¯”è¼ƒãƒ†ãƒ¼ãƒ–ãƒ«
 
-## ƒƒgƒŠƒNƒX
+## ãƒ¡ãƒˆãƒªã‚¯ã‚¹
 
 - SMAPE: Symmetric MAPE
 - MAE: Mean Absolute Error

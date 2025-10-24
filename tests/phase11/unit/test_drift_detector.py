@@ -1,4 +1,4 @@
-﻿"""test_drift_detector.py"""
+"""test_drift_detector.py"""
 import pytest
 import pandas as pd
 import numpy as np

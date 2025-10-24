@@ -1,4 +1,4 @@
-﻿"""Inference カスタム例外"""
+"""Inference カスタム例外"""
 
 
 class InferenceError(Exception):

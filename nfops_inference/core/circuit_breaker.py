@@ -1,4 +1,4 @@
-﻿"""circuit_breaker.py - サーキットブレーカー"""
+"""circuit_breaker.py - サーキットブレーカー"""
 from enum import Enum
 from typing import Callable, Any
 from datetime import datetime, timedelta

@@ -1,4 +1,4 @@
-﻿"""test_gatekeeper.py"""
+"""test_gatekeeper.py"""
 import pytest
 from nfops_promotion.core.gatekeeper import Gatekeeper
 

@@ -1,4 +1,4 @@
-"""sample_data_phase7.py - ƒTƒ“ƒvƒ‹ƒf[ƒ^¶¬"""
+"""sample_data_phase7.py - ã‚µãƒ³ãƒ—ãƒ«ãƒ‡ãƒ¼ã‚¿ç”Ÿæˆ"""
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -29,7 +29,6 @@ for sid in series_ids:
             (actuals_df['unique_id'] == sid) & 
             (actuals_df['ds'] == date)
         ]['y'].values[0]
-ECHO ‚Í <ON> ‚Å‚·B
         # Add prediction error
         for q in [0.1, 0.5, 0.9]:
             if q == 0.5:
@@ -38,7 +37,6 @@ ECHO ‚Í <ON> ‚Å‚·B
                 y_hat = actual + np.random.randn() * 3 - 5
             else:  # 0.9
                 y_hat = actual + np.random.randn() * 3 + 5
-ECHO ‚Í <ON> ‚Å‚·B
             preds_data.append({
                 'unique_id': sid,
                 'ds': date,
@@ -61,6 +59,6 @@ actuals_df.to_csv(output_dir / 'test_actuals.csv', index=False)
 preds_df.to_parquet(output_dir / 'test_preds.parquet')
 preds_df.to_csv(output_dir / 'test_preds.csv', index=False)
 
-print(f"Generated {len^(actuals_df^)} actuals")
-print(f"Generated {len^(preds_df^)} predictions")
+print(f"Generated {len(actuals_df)} actuals")
+print(f"Generated {len(preds_df)} predictions")
 print(f"Saved to {output_dir}")

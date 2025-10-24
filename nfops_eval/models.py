@@ -12,7 +12,6 @@ class EvalMetrics:
     rmse: float
     mape: Optional[float] = None
     crps: Optional[float] = None
-ECHO is on.
     def to_dict(self) -> Dict:
         return {
             "smape": self.smape,
@@ -31,7 +30,6 @@ class TestResult:
     pvalue: float
     significant: bool
     effect_size: Optional[float] = None
-ECHO is on.
     def to_dict(self) -> Dict:
         return {
             "test": self.test_name,

@@ -1,4 +1,4 @@
-﻿"""observability_runner.py - 監視実行CLI"""
+"""observability_runner.py - 監視実行CLI"""
 import click
 import time
 from pathlib import Path

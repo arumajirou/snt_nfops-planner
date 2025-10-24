@@ -1,4 +1,4 @@
-﻿"""dashboard_generator.py - Grafanaダッシュボード生成"""
+"""dashboard_generator.py - Grafanaダッシュボード生成"""
 import json
 from pathlib import Path
 from loguru import logger

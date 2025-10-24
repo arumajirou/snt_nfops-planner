@@ -1,4 +1,4 @@
-﻿"""app.py - FastAPI アプリケーション"""
+"""app.py - FastAPI アプリケーション"""
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import time

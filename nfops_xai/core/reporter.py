@@ -1,4 +1,4 @@
-"""reporter.py - XAIÉåÉ|Å[Égê∂ê¨"""
+"""reporter.py - XAI„É¨„Éù„Éº„ÉàÁîüÊàê"""
 import pandas as pd
 from pathlib import Path
 from loguru import logger
@@ -8,11 +8,9 @@ from nfops_xai.models import WorstCase
 
 class Reporter:
     """XAI report generator"""
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     def __init__(self, output_dir: Path):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     def generate_html(
         self,
         global_importance: pd.DataFrame,
@@ -22,8 +20,7 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     ):
         """Generate XAI report"""
         logger.info("Generating XAI report...")
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
-        html = """^<!DOCTYPE html^>
+        html = """<!DOCTYPE html>
 <html>
 <head>
     <title>XAI Report</title>
@@ -44,17 +41,15 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
 </head>
 <body>
     <h1>XAI / Error Analysis Report</h1>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <div class="section">
         <h2>Summary</h2>
         <div class="metric">
-            <strong>Features Analyzed:</strong> """ + str^(len^(global_importance^)^) + """
+            <strong>Features Analyzed:</strong> """ + str(len(global_importance)) + """
         </div>
         <div class="metric">
-            <strong>Worst Cases:</strong> """ + str^(len^(worst_cases^)^) + """
+            <strong>Worst Cases:</strong> """ + str(len(worst_cases)) + """
         </div>
     </div>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <div class="section">
         <h2>Global Feature Importance</h2>
         <table>
@@ -64,7 +59,6 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
                 <th>Importance</th>
             </tr>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         for i, row in global_importance.head(20).iterrows():
             feature_class = ' class="top-feature"' if i < 5 else ''
             html += f"""
@@ -74,11 +68,9 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
                 <td>{row['importance']:.4f}</td>
             </tr>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         html += """
         </table>
     </div>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <div class="section">
         <h2>Worst Prediction Cases</h2>
         <table>
@@ -91,7 +83,6 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
                 <th>Error</th>
             </tr>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         for wc in worst_cases[:20]:
             html += f"""
             <tr>
@@ -103,11 +94,9 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
                 <td>{wc.error:+.2f}</td>
             </tr>
 """
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         html += """
         </table>
     </div>
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     <div class="section">
         <h2>Recommendations</h2>
         <ul>
@@ -119,8 +108,6 @@ ECHO ÇÕ <ON> Ç≈Ç∑ÅB
     </div>
 </body>
 </html>"""
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         output_path = self.output_dir / filename
         output_path.write_text(html, encoding='utf-8')
-ECHO ÇÕ <ON> Ç≈Ç∑ÅB
         logger.success(f"Report saved: {output_path}")

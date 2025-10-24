@@ -1,4 +1,4 @@
-﻿"""artifact_bundler.py - Artifact収集"""
+"""artifact_bundler.py - Artifact収集"""
 from pathlib import Path
 from loguru import logger
 from typing import List, Dict

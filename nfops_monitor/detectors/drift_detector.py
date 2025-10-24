@@ -1,4 +1,4 @@
-﻿"""drift_detector.py - ドリフト検知"""
+"""drift_detector.py - ドリフト検知"""
 import numpy as np
 import pandas as pd
 from loguru import logger

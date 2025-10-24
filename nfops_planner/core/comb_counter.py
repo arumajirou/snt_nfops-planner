@@ -1,4 +1,4 @@
-"""comb_counter.py - 邨・粋縺帶焚邂怜・"""
+"""comb_counter.py - 驍ｨ繝ｻ邊狗ｸｺ蟶ｶ辟夐ｂ諤懊�ｻ"""
 from typing import Dict
 from dataclasses import dataclass
 from loguru import logger
@@ -6,22 +6,23 @@ from loguru import logger
 
 @dataclass
 class CountResult:
-    """繧ｫ繧ｦ繝ｳ繝育ｵ先棡"""
+    """郢ｧ繧ｩ郢ｧ繝ｲ郢昴え郢晁ご繧ｪ蜈域｣｡"""
     total_combos: int
     per_model: Dict[str, int]
     computation_time_ms: float
 
 
 class CombCounter:
-    """邨・粋縺帶焚繧ｫ繧ｦ繝ｳ繧ｿ繝ｼ"""
+    """驍ｨ繝ｻ邊狗ｸｺ蟶ｶ辟夂ｹｧ繧ｩ郢ｧ繝ｲ郢昴え郢ｧ繧ｽ郢昴す"""
     def __init__(self, max_combos: int = 10000):
         self.max_combos = max_combos
-ECHO は <OFF> です。
     def count(self, spec, invalid_rules):
         logger.info("Counting combinations...")
         total = 0
         per_model = {}
         for model in spec.models:
+            if not model.get("active", True):
+                continue
             count = 1
             for param_name, param_def in model.get('params', {}).items():
                 if isinstance(param_def, list):

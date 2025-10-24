@@ -32,15 +32,17 @@ include = [ "nfops_*" ]
 addopts = "-q"
 testpaths = [ "tests" ]
 
-# ----- extras (dotted keys) -----
-optional-dependencies.dev = [ "pytest>=8", "loguru>=0.7", "psutil>=5", "pyyaml>=6" ]
-optional-dependencies.eval = [ "pandas>=2" ]
-optional-dependencies.features = [ "pandas>=2" ]
-optional-dependencies.predict = [ "pandas>=2" ]
-optional-dependencies.inference = [ "loguru>=0.7" ]
-optional-dependencies.monitor = [ "loguru>=0.7", "psutil>=5" ]
-optional-dependencies.observability = [ "loguru>=0.7", "psutil>=5" ]
-optional-dependencies.train = [
-  "lightning>=2",
-  # torch は CUDA/CPU に合わせ個別インストール推奨
+[project.optional-dependencies]
+dev = ["pytest>=8", "loguru>=0.7", "psutil>=5", "pyyaml>=6"]
+eval = ["pandas>=2"]
+features = ["pandas>=2"]
+predict = ["pandas>=2"]
+inference = ["loguru>=0.7"]
+monitor = ["loguru>=0.7", "psutil>=5"]
+observability = ["loguru>=0.7", "psutil>=5"]
+
+# 学習系（重いので任意化。必要時のみ入れる）
+train = [
+  "lightning>=2 ; extra == 'train' or extra == 'all'",
+  # torch は環境依存が強いので自分のCUDAに合わせて入れる想定
 ]

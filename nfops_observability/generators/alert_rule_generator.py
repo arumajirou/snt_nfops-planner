@@ -1,4 +1,4 @@
-﻿"""alert_rule_generator.py - アラートルール生成""" 
+"""alert_rule_generator.py - アラートルール生成""" 
 import yaml
 from pathlib import Path
 from loguru import logger

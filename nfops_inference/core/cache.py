@@ -1,4 +1,4 @@
-﻿"""cache.py - キャッシュ"""
+"""cache.py - キャッシュ"""
 from typing import Optional, Dict, Any
 import hashlib
 import json

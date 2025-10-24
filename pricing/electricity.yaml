@@ -1,4 +1,4 @@
-﻿# Electricity pricing by region
+# Electricity pricing by region
 regions:
   us-east-1:
     price_usd_per_kwh: 0.12

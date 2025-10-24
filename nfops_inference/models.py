@@ -1,4 +1,4 @@
-﻿"""Data models for inference"""
+"""Data models for inference"""
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime

@@ -1,4 +1,4 @@
-﻿"""residual_monitor.py - 残差監視"""
+"""residual_monitor.py - 残差監視"""
 import pandas as pd
 import numpy as np
 from loguru import logger

@@ -1,4 +1,4 @@
-﻿"""Data models for monitoring"""
+"""Data models for monitoring"""
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
