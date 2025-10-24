@@ -250,6 +250,9 @@ if __name__ == "__main__":
                 _a.type = str  # まずは文字列で受ける
                 # 複数トークン設定だった場合でも1トークンとして受ける（CSV想定）
                 if getattr(_a, "nargs", None) not in (None, "?",):
+                # 事前バリデーションをすべて無効化（自前で検証するため）
+                if hasattr(_a, "choices"):
+                    _a.choices = None
                     _a.nargs = None
                 break
     except Exception:
