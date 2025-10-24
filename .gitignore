@@ -39,3 +39,10 @@ mlruns/
 secrets.yaml
 *.key
 *.pem
+.history/
+*.bak.*
+*.broken.*
+*.fixbak.*
+dist/
+build/
+*.egg-info/
