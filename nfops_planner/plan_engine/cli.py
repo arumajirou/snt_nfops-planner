@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from .quantiles_validator import parse_importance_quantiles, emit_warning_if_any, DEFAULT_QUANTILES
 from __future__ import annotations
 import argparse, json, sys, time, socket, subprocess, os
 from pathlib import Path
@@ -44,7 +45,7 @@ def main(argv=None) -> int:
     ap.add_argument("--emit-artifacts", choices=["on","off"], default="on")
     ap.add_argument("--status-format", choices=["json","text"], default="json")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--importance-quantiles", default=None, help="comma-separated quantiles e.g. 0.4,0.5,0.7,0.9")
+    ap.add_argument("--importance-quantiles", default=None, help="comma-separated quantiles e.g. 0.4,0.5,0.7,0.9（0–1の小数CSV。昇順・重複可、無効はフォールバック）')
     args = ap.parse_args(argv)
     quantiles = None
     if getattr(args, 'importance_quantiles', None):
@@ -244,3 +245,12 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+    # --importance-quantiles / ENV を安全に解釈（無効時は既定 & 警告）
+    _q, _warn = parse_importance_quantiles(getattr(args, "importance_quantiles", None), os.environ.get("NFOPS_IMPORTANCE_QUANTILES"))
+    emit_warning_if_any(_warn)
+    # 以後のロジックが参照する統一名にバインド（既に args.importance_quantiles を使っている場合も保険で上書き）
+    try:
+        args.importance_quantiles = ",".join(str(x) for x in _q)
+    except Exception:
+        pass
+    IMPORTANCE_QUANTILES = tuple(_q)
