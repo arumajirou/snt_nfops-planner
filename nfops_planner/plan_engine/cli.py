@@ -1,6 +1,5 @@
-import os
+import nfops_planner.plan_engine.assumptions_hook  # noqa: F401
 # -*- coding: utf-8 -*-
-from .quantiles_validator import parse_importance_quantiles, emit_warning_if_any, DEFAULT_QUANTILES
 from __future__ import annotations
 import argparse, json, sys, time, socket, subprocess, os
 from pathlib import Path
@@ -9,8 +8,8 @@ from .spec_loader import load_spec, naive_count_combos, SpecError
 from .cost_time_estimator import estimate_trial_seconds, aggregate_cost
 from .invalid_loader import compile_rules, count_with_invalid, expand_param_values
 from .mlflow_emitter import emit_to_mlflow
-from .sec_model import predict_sec_per_trial, extract_features
-from .importance_reducer import compute_importances, shrink_until_budget, propose_by_importance
+from .sec_model import predict_sec_per_trial
+from .importance_reducer import compute_importances, propose_by_importance
 
 def _parse_time_budget(s: str) -> int:
     s = s.strip().lower()
@@ -46,15 +45,7 @@ def main(argv=None) -> int:
     ap.add_argument("--emit-artifacts", choices=["on","off"], default="on")
     ap.add_argument("--status-format", choices=["json","text"], default="json")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--importance-quantiles", default=None, help="comma-separated quantiles (0-1 floats), ascending; duplicates ok; invalid -> fallback; e.g. 0.4,0.5,0.7,0.9")
     args = ap.parse_args(argv)
-    quantiles = None
-    if getattr(args, 'importance_quantiles', None):
-        try:
-            quantiles = [float(x) for x in str(args.importance_quantiles).split(',') if x.strip()!='']
-        except Exception:
-            quantiles = None
-
 
     try:
         spec = load_spec(args.spec)
@@ -198,15 +189,7 @@ def main(argv=None) -> int:
         "gpu_type": args.gpu_type, "cost_unit": args.cost_unit,
         "gpu_share": args.gpu_share, "status": status_note,
     }
-    run_id =     try:
-        planning_dir = Path(args.out_dir)/'planning'
-        planning_dir.mkdir(parents=True, exist_ok=True)
-        from .sec_model import extract_features
-        _sec_feats = extract_features(spec)
-        (planning_dir/'sec_features.json').write_text(__import__('json').dumps(_sec_feats, ensure_ascii=False, indent=2), encoding='utf-8')
-    except Exception:
-        pass
-    emit_to_mlflow(result, params_for_ml)
+    run_id = emit_to_mlflow(result, params_for_ml)
     if run_id: result["mlflow_run_id"] = run_id
 
     # アウトプット/ログ（dry-run ではファイルなし）
@@ -246,21 +229,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-    ap.add_argument("--importance-quantiles", default=None, help="comma-separated quantiles (0-1 floats), ascending; duplicates ok; invalid -> fallback; e.g. 0.4,0.5,0.7,0.9")
-    _q, _warn = parse_importance_quantiles(getattr(args, "importance_quantiles", None), os.environ.get("NFOPS_IMPORTANCE_QUANTILES"))
-    emit_warning_if_any(_warn)
-    # 以後のロジックが参照する統一名にバインド（既に args.importance_quantiles を使っている場合も保険で上書き）
-    try:
-        args.importance_quantiles = ",".join(str(x) for x in _q)
-    except Exception:
-        pass
-    IMPORTANCE_QUANTILES = tuple(_q)
-    # parse importance quantiles safely (CLI > ENV > default)
-    from .quantiles_validator import parse_importance_quantiles, emit_warning_if_any, DEFAULT_QUANTILES
-    _q, _warn = parse_importance_quantiles(getattr(args, "importance_quantiles", None), os.environ.get("NFOPS_IMPORTANCE_QUANTILES"))
-    emit_warning_if_any(_warn)
-    try:
-        args.importance_quantiles = ",".join(str(x) for x in _q)
-    except Exception:
-        pass
-    IMPORTANCE_QUANTILES = tuple(_q)
