@@ -15,7 +15,6 @@ def _parse_csv_floats(s: str) -> List[float]:
     vals: List[float] = []
     for p in parts:
         if p == "":
-            # 空要素は無効入力扱いにする（後段フォールバックのトリガ）
             raise ValueError("空要素を含む")
         try:
             vals.append(float(p))
@@ -33,7 +32,6 @@ def parse_importance_quantiles(arg_value: str | None, env_value: str | None) -> 
     正常系: (tuple_of_floats, None)
     フォールバック系: (DEFAULT_QUANTILES, warn_msg)
     """
-    # list/tuple で渡る可能性に保険（nargs 等の歴史対応）
     def _normalize_seq_to_csv(x):
         if isinstance(x, (list, tuple)):
             return ",".join(str(v) for v in x)
@@ -59,10 +57,7 @@ def parse_importance_quantiles(arg_value: str | None, env_value: str | None) -> 
             raise ValueError("要素数が0")
         if not all(0.0 < v < 1.0 for v in vals):
             raise ValueError("0–1の開区間外の値を含む")
-        # 重複除去後に昇順へ正規化（重複/非昇順は警告不要とする）
-        uniq = tuple(sorted(set(vals)))
-        return uniq, None
+        uniq_sorted = tuple(sorted(set(vals)))
+        return uniq_sorted, None  # 重複/非昇順は正常化（警告なし）
     except Exception as e:
-        return DEFAULT_QUANTILES, f"{src} の --importance-quantiles が無効: {e}; 既定 {DEFAULT_QUANTILES} にフォールバックします。"
-
-__all__ = ["DEFAULT_QUANTILES", "parse_importance_quantiles", "emit_warning_if_any"]
+        return DEFAULT_QUANTILES, f"{src} importance-quantiles 無効入力: {raw!r}（{e}）。フォールバックにより既定値 {DEFAULT_QUANTILES} を使用します。"
