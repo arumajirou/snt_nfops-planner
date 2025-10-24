@@ -1,0 +1,24 @@
+﻿{
+  "model_name": "sales_demand_D",
+  "version_or_stage": "Production",
+  "quantiles": [0.1, 0.5, 0.9],
+  "scenario_id": "base",
+  "items": [
+    {
+      "unique_id": "S001",
+      "ds": "2025-10-01T00:00:00",
+      "exog": {
+        "price": 120,
+        "promo": 1
+      }
+    },
+    {
+      "unique_id": "S002",
+      "ds": "2025-10-01T00:00:00",
+      "exog": {
+        "price": 115,
+        "promo": 0
+      }
+    }
+  ]
+}

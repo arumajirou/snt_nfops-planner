@@ -1,0 +1,69 @@
+{
+  "uid": "nf-audit",
+  "title": "NF Ops \u2014 Audit",
+  "tags": [
+    "nfops",
+    "audit"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 1,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Audit Events (24h)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(nf_audit_events_total[24h]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Recent Audit Events",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "{app=\"api\"} |= \"audit\" | json",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "graph",
+      "title": "Events by Type",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (event) (rate(nf_audit_events_total[5m]))",
+          "legendFormat": "{{event}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

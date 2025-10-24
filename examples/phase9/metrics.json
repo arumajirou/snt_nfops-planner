@@ -1,0 +1,8 @@
+﻿{
+  "delta_smape": -1.5,
+  "smape": 11.8,
+  "mae": 8.2,
+  "coverage_90": 0.91,
+  "dm_pvalue": 0.018,
+  "crps": 2.3
+}

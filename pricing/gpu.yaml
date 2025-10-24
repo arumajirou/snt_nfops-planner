@@ -1,0 +1,11 @@
+﻿# GPU pricing
+gpu_types:
+  v100:
+    on_demand_usd_per_hour: 2.48
+    spot_usd_per_hour: 0.74
+  a100:
+    on_demand_usd_per_hour: 4.10
+    spot_usd_per_hour: 1.23
+  t4:
+    on_demand_usd_per_hour: 0.95
+    spot_usd_per_hour: 0.29

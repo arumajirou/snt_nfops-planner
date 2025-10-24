@@ -1,0 +1,14 @@
+﻿# Electricity pricing by region
+regions:
+  us-east-1:
+    price_usd_per_kwh: 0.12
+    carbon_intensity_kg_per_kwh: 0.45
+  us-west-2:
+    price_usd_per_kwh: 0.10
+    carbon_intensity_kg_per_kwh: 0.35
+  eu-central-1:
+    price_usd_per_kwh: 0.18
+    carbon_intensity_kg_per_kwh: 0.40
+  ap-northeast-1:
+    price_usd_per_kwh: 0.22
+    carbon_intensity_kg_per_kwh: 0.55

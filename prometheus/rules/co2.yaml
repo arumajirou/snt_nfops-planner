@@ -1,0 +1,19 @@
+groups:
+- name: co2.rules
+  rules:
+  - alert: CO2BudgetExceeded
+    expr: sum(increase(nf_co2_kg[7d])) > 100
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: Weekly CO2 budget exceeded
+      description: '7-day CO2 emissions: {{ $value }}kg (budget: 100kg)'
+  - alert: CostBudgetExceeded
+    expr: sum(increase(nf_cost_usd[7d])) > 1000
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: Weekly cost budget exceeded
+      description: '7-day cost: ${{ $value }} (budget: $1000)'

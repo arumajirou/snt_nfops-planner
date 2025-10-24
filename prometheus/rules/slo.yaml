@@ -1,0 +1,21 @@
+groups:
+- name: slo.rules
+  rules:
+  - alert: InferenceLatencyHigh
+    expr: histogram_quantile(0.95, sum by (le) (rate(nf_infer_latency_ms_bucket[5m])))
+      > 250
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Inference p95 latency above SLO
+      description: 'p95 latency is {{ $value }}ms (threshold: 250ms)'
+  - alert: InferenceErrorRateHigh
+    expr: sum(rate(nf_infer_errors_total[5m])) / sum(rate(nf_infer_requests_total[5m]))
+      > 0.005
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Inference error rate above SLO
+      description: 'Error rate is {{ $value | humanizePercentage }} (threshold: 0.5%)'

@@ -1,0 +1,19 @@
+groups:
+- name: gpu.rules
+  rules:
+  - alert: ZombieGPUProcess
+    expr: (nf_gpu_util > 0 or nf_vram_used_gb > 1) and on(gpu_uuid) absent(kube_pod_info)
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Zombie GPU process detected
+      description: GPU {{ $labels.gpu_uuid }} is busy but has no owning Pod
+  - alert: GPUUtilizationLow
+    expr: avg(nf_gpu_util) < 20
+    for: 30m
+    labels:
+      severity: info
+    annotations:
+      summary: GPU utilization is low
+      description: Average GPU utilization is {{ $value }}% (consider scaling down)
