@@ -1,4 +1,10 @@
-﻿# scripts/phase14_run.py
+﻿import sys
+from pathlib import Path
+# Ensure repo root on sys.path for "src.*" imports even when invoked as "python scripts/foo.py"
+_root = str(Path(__file__).resolve().parents[1])
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+# scripts/phase14_run.py
 from __future__ import annotations
 import os, json, time
 from pathlib import Path
@@ -9,8 +15,12 @@ from src.phase14.connectors.prometheus_connector import query_range
 from src.phase14.connectors.grafana_connector import fetch_panels
 from src.phase14.connectors.kibana_connector import fetch_saved_search
 from src.phase14.connectors.prometheus_connector import query_range
+from src.phase14.connectors.grafana_connector import fetch_panels
+from src.phase14.connectors.kibana_connector import fetch_saved_search
+from src.phase14.connectors.prometheus_connector import query_range
 from src.phase14.normalizer import normalize, save_json
 from src.phase14.summarizer import build_summary
+from src.phase14.llm_summarizer import summarize_with_llm
 from src.phase14.llm_summarizer import summarize_with_llm
 from src.phase14.llm_summarizer import summarize_with_llm
 from src.phase14.indexer import build_index
@@ -64,6 +74,10 @@ def main():
     _llm = summarize_with_llm(_ctx)
     if _llm:
         summary = _llm
+    _ctx = {"batch_id": batch_id, "register": register, "smape": smape, "smape_max": 0.20, "estimated_trials": est_trials, "estimated_gpu_hours": est_gpu, "ref_dir": p13.get("latest_dir","N/A")}
+    _llm = summarize_with_llm(_ctx)
+    if _llm:
+        summary = _llm
     (out_dir/"summary.md").write_text(summary, encoding="utf-8")
 
     # 4) インデックス
@@ -100,6 +114,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
 
 
 
