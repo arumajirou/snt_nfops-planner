@@ -1,2 +1,0 @@
-{"ts": "2025-10-24T16:34:24.658978", "event": "PROMOTE", "actor": {"type": "user", "id": "user123", "role": "admin"}, "request_id": "req-001", "run_id": "run-001", "model": {"name": "sales_demand_D", "version": 27}, "status": {"ok": true, "code": 200}, "latency_ms": 84.5}
-{"ts": "2025-10-24T16:34:24.660954", "event": "PREDICT", "actor": {"type": "service", "id": "api-service", "role": "service"}, "request_id": "req-002", "run_id": null, "model": {"name": "sales_demand_D", "version": 27}, "status": {"ok": true, "code": 200}, "latency_ms": 42.3}

@@ -1,2 +1,0 @@
-{"ts": "2025-10-24T16:19:16.182494", "request_id": "07fb5d03-6288-4963-9473-267ec80c6d1f", "route": "batch_infer", "model": "sales_demand_D", "version": 27, "scenario": "base", "latency_ms": 2944.5321559906006, "status": 0, "cache_hit": false, "n_items": 300, "err": null}
-{"ts": "2025-10-24T16:19:41.405423", "request_id": "68590970-7343-4d77-9dbd-9840dc56f319", "route": "batch_infer", "model": "sales_demand_D", "version": 27, "scenario": "base", "latency_ms": 92.33760833740234, "status": 0, "cache_hit": false, "n_items": 300, "err": null}

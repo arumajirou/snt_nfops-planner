@@ -46,3 +46,26 @@ secrets.yaml
 dist/
 build/
 *.egg-info/
+# == nfops clean ==
+# build artifacts
+build/
+dist/
+*.egg-info/
+# caches
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+*.py[cod]
+# local runtime outputs
+logs/
+preds/
+monitor/metrics.txt
+# editor/misc
+*.swp
+.DS_Store
+# backup/accidental
+*.bak.*
+*.broken.*
+*.fixbak.*
