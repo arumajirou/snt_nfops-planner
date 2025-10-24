@@ -1,0 +1,64 @@
+﻿name: phase13-smoke
+
+on:
+  push:
+    branches: [ master, feature/phase-13-retrain, ci/phase13-smoke ]
+    paths:
+      - "flows/retrain_flow.py"
+      - "dags/retrain_dag.py"
+      - "matrix/production_retrain.yaml"
+      - "tests/phase13_contract.yaml"
+      - ".github/workflows/phase13-smoke.yml"
+  pull_request:
+    branches: [ master ]
+    paths:
+      - "flows/retrain_flow.py"
+      - "dags/retrain_dag.py"
+      - "matrix/production_retrain.yaml"
+      - "tests/phase13_contract.yaml"
+      - ".github/workflows/phase13-smoke.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Import check (no Airflow/Prefect required)
+        run: python -c "import importlib; import dags.retrain_dag, flows.retrain_flow; print('import-ok')"
+
+      - name: Run retrain flow (artifact skeleton)
+        env:
+          PHASE13_REASON: "ci"
+        run: python flows/retrain_flow.py
+
+      - name: Contract check (matrix exists)
+        run: test -f matrix/production_retrain.yaml
+
+      - name: Contract check (artifacts exist)
+        run: |
+          set -e
+          # 至少 1 つの batch_id ディレクトリが生成されていること
+          test -n "$(ls -d outputs/phase13/* 2>/dev/null)"
+          # plan_summary.json に status: OK が含まれること（最低1件）
+          grep -R "\"status\": *\"OK\"" outputs/phase13/*/plan_summary.json | head -n 1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase13-artifacts
+          path: outputs/phase13/**
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          echo "✅ Phase13 smoke completed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Artifacts path: outputs/phase13/**" >> $GITHUB_STEP_SUMMARY
