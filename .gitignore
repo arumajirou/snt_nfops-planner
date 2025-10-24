@@ -22,3 +22,9 @@ monitor/metrics.txt
 *.bak.*
 *.broken.*
 *.fixbak.*
+
+# ML/生成物
+mlruns/
+artifacts/
+logs/
+*.log
