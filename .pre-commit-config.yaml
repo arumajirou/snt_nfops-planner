@@ -3,3 +3,27 @@ repos:
   rev: v2.11.0
   hooks:
   - id: pyproject-fmt
+- repo: local
+  hooks:
+  - id: toml-parse
+    name: toml-parse
+    entry: python -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"
+    language: system
+    files: ^pyproject\.toml$
+  - id: extras-layout
+    name: extras-layout
+    entry: "python -c \"import sys,re; t=open('pyproject.toml','rb').read(); has_dotted=bool(re.search(rb'^\\\
+      \\s*optional-dependencies\\\\.', t, re.M)); has_block=b'[project.optional-dependencies]'\
+      \ in t; bad=(has_dotted and has_block); print('NG: dotted \u3068 [project.optional-dependencies]\
+      \ \u306E\u6DF7\u5728\u3092\u691C\u51FA', file=sys.stderr) if bad else None;\
+      \ sys.exit(1 if bad else 0)\""
+    language: system
+    files: ^pyproject\.toml$
+  - id: license-spdx
+    name: license-spdx
+    language: system
+    files: ^pyproject\.toml$
+    entry: "python -c \"import re,sys; t=open('pyproject.toml','rb').read(); bad=re.search(rb'^\\\
+      s*license\\s*=\\s*\\{', t, re.M); print('NG: [project].license \u306F SPDX \u6587\
+      \u5B57\u5217\u3092\u4F7F\u3063\u3066\u304F\u3060\u3055\u3044 (license = \"...\"\
+      )', file=sys.stderr) if bad else None; sys.exit(1 if bad else 0)\""

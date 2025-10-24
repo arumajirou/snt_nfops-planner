@@ -7,8 +7,7 @@ name = "nfops-planner"
 version = "0.0.0"
 description = "NFOPS planner (temporary minimal metadata)"
 readme = "README.md"
-license = "MIT"
-license-files = [ "LICENSE", "LICENSE.txt" ]
+license = { text = "Proprietary" }
 authors = [ { name = "NFOPS Team" } ]
 requires-python = ">=3.9"
 classifiers = [
@@ -22,15 +21,17 @@ classifiers = [
 ]
 dependencies = [  ]
 
-optional-dependencies.dev = [ "loguru>=0.7", "psutil>=5", "pytest>=8", "pyyaml>=6" ]
-optional-dependencies.eval = [ "pandas>=2" ]
-optional-dependencies.features = [ "pandas>=2" ]
-optional-dependencies.inference = [ "loguru>=0.7" ]
-optional-dependencies.monitor = [ "loguru>=0.7", "psutil>=5" ]
-optional-dependencies.observability = [ "loguru>=0.7", "psutil>=5" ]
-optional-dependencies.predict = [ "pandas>=2" ]
-optional-dependencies.train = [ "lightning>=2" ]                                     # torch は CUDA/CPU に合わせ個別インストール推奨
 
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "loguru>=0.7", "psutil>=5", "pyyaml>=6"]
+eval = ["pandas>=2"]
+features = ["pandas>=2"]
+predict = ["pandas>=2"]
+inference = ["loguru>=0.7"]
+monitor = ["loguru>=0.7", "psutil>=5"]
+observability = ["loguru>=0.7", "psutil>=5"]
+train = ["lightning>=2"]
 [tool.setuptools.packages.find]
 # パッケージは nfops_* 配下を拾う
 include = [ "nfops_*" ]
@@ -39,3 +40,8 @@ include = [ "nfops_*" ]
 # 余計なプラグインを読まないよう、環境変数と合わせて静かに動かす
 addopts = "-q"
 testpaths = [ "tests" ]
+
+# ----- extras (dotted keys) -----
+  "lightning>=2",
+  # torch は CUDA/CPU に合わせ個別インストール推奨
+]
