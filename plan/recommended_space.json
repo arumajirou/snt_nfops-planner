@@ -3,17 +3,18 @@
     {
       "name": "AutoNHITS",
       "params": {
+        "input_size": [
+          48
+        ],
+        "batch_size": {
+          "type": "int",
+          "min": 32,
+          "max": 128,
+          "step": 32
+        },
         "h": [
           24,
           48
-        ],
-        "input_size": [
-          48,
-          72
-        ],
-        "batch_size": [
-          32,
-          64
         ]
       }
     },
@@ -27,7 +28,8 @@
           72
         ],
         "batch_size": [
-          32
+          32,
+          64
         ]
       }
     }

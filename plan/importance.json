@@ -1,4 +1,12 @@
 {
-  "AutoNHITS": {},
-  "AutoTFT": {}
+  "AutoNHITS": {
+    "h": 0.8697669024701405,
+    "input_size": 0.01890293401368262,
+    "batch_size": 0.11133016351617682
+  },
+  "AutoTFT": {
+    "h": 0.0,
+    "input_size": 0.0,
+    "batch_size": 1.0
+  }
 }

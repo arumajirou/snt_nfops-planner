@@ -156,8 +156,7 @@ def count_with_invalid(model: Dict[str, Any], compiled: List[CompiledRule],
                 for k, pred in ru.forbid.items():
                     if k in assign and pred(assign[k]):
                         return True
-                # if 真 かつ then 偽 は invalid なので、
-                # forbid 全てが偽 ⇒ invalid（IF 成立時の THEN 未満足）
+                # if 真 かつ then 偽 は invalid（THEN 未満足）
                 return True
             # forbid 無しの普通の invalid 条件
             return True

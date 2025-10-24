@@ -81,8 +81,8 @@ def main(argv=None) -> int:
         else:
             valid, invalid, applied = naive, 0, False
         invalid_applied = invalid_applied or applied
-        combos += valid
-        sec_hat = max(sec_hat, estimate_trial_seconds(m))  # pessimistic per-trial
+        combos += max(0, int(valid))
+        sec_hat = max(sec_hat, float(estimate_trial_seconds(m)))  # pessimistic per-trial
         modelwise.append({"name": m.get("name",""), "naive": naive, "valid": valid, "invalid": invalid, "applied": applied})
 
     # 学習ベースの sec_per_trial があれば CI 付きで採用（保守的に max を取る）
@@ -90,9 +90,35 @@ def main(argv=None) -> int:
     if source == "learned":
         sec_hat = max(sec_hat, learned)
 
-    agg = aggregate_cost(combos, sec_hat, args.gpu_share, args.cost_unit)
-    result = dict(agg)
-    result.setdefault("assumptions", [])
+    # --- 集計（フォールバック込みで安全に） -------------------------------
+    agg = {}
+    try:
+        agg = aggregate_cost(combos, sec_hat, args.gpu_share, args.cost_unit) or {}
+    except Exception:
+        agg = {}
+    # 決して欠けないデフォルトを構築
+    default_duration = float(combos) * float(sec_hat)  # gpu_share=1 を基本に
+    defaults = {
+        "estimated_trials": int(combos),
+        "estimated_duration_sec": default_duration,
+        "estimated_gpu_hours": (default_duration / 3600.0),
+        "estimated_cost_usd": (default_duration / 3600.0) * float(args.cost_unit),
+        "space_reduction_rate": 0.0,
+        "assumptions": []
+    }
+    # dict/シーケンスに両対応でマージ
+    result: Dict[str, Any] = dict(defaults)
+    if isinstance(agg, dict):
+        result.update(agg)
+    else:
+        try:
+            result.update(dict(agg))
+        except Exception:
+            pass
+
+    # assumptions を追記（存在しない場合もケア）
+    if "assumptions" not in result or not isinstance(result["assumptions"], list):
+        result["assumptions"] = []
     result["assumptions"].append(f"sec_per_trial~{sec_hat}")
     result["assumptions"].append(f"gpu_share={args.gpu_share}")
     result["assumptions"].append(f"gpu_type={args.gpu_type}")
@@ -104,7 +130,7 @@ def main(argv=None) -> int:
 
     # 予算判定
     time_budget_sec = _parse_time_budget(args.time_budget)
-    status_note = "OK" if result["estimated_duration_sec"] <= time_budget_sec else "EXCEEDS_BUDGET"
+    status_note = "OK" if float(result.get("estimated_duration_sec", default_duration)) <= float(time_budget_sec) else "EXCEEDS_BUDGET"
 
     # 予算を超えたら縮約案を作る（fANOVA→失敗なら 30%トリム）
     used_strategy = None
@@ -152,10 +178,8 @@ def main(argv=None) -> int:
         if args.emit_artifacts == "on" and not args.dry_run:
             out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
             (out_dir / "recommended_space.json").write_text(json.dumps(recommended, ensure_ascii=False, indent=2), encoding="utf-8")
-            # importance.json（空でも出して可視化を安定化）
+            # importance.json（空でも出す）
             (out_dir / "importance.json").write_text(json.dumps(importance_dump, ensure_ascii=False, indent=2), encoding="utf-8")
-    else:
-        result.setdefault("space_reduction_rate", 0.0)
 
     # MLflow へ emit（失敗は無視）
     params_for_ml = {
@@ -167,40 +191,36 @@ def main(argv=None) -> int:
     run_id = emit_to_mlflow(result, params_for_ml)
     if run_id: result["mlflow_run_id"] = run_id
 
-    # アウトプット
+    # アウトプット/ログ（dry-run ではファイルなし）
     if args.emit_artifacts == "on" and not args.dry_run:
         out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "plan_summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    # 構造化ログ(JSONL)
-    try:
-        rev = subprocess.check_output(["git","rev-parse","--short","HEAD"], text=True).strip()
-    except Exception:
-        rev = "unknown"
-    log = {
-        "ts": time.time(), "phase": "P1.2", "status": status_note,
-        "host": socket.gethostname(), "git_rev": rev,
-        "versions": _versions(), "mlflow_run_id": run_id or "",
-        "result": result, "modelwise": modelwise,
-        "args": {
-            "spec": args.spec, "invalid": args.invalid, "time_budget": args.time_budget,
-            "max_combos": args.max_combos, "gpu_type": args.gpu_type,
-            "cost_unit": args.cost_unit, "gpu_share": args.gpu_share
-        },
-        "dsl_kinds": dsl_kinds, "dsl_rules_count": sum(dsl_kinds.values())
-    }
-    if args.emit_artifacts == "on" and not args.dry_run:
-        out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            rev = subprocess.check_output(["git","rev-parse","--short","HEAD"], text=True).strip()
+        except Exception:
+            rev = "unknown"
+        log = {
+            "ts": time.time(), "phase": "P1.2", "status": status_note,
+            "host": socket.gethostname(), "git_rev": rev,
+            "versions": _versions(), "mlflow_run_id": run_id or "",
+            "result": result, "modelwise": modelwise,
+            "args": {
+                "spec": args.spec, "invalid": args.invalid, "time_budget": args.time_budget,
+                "max_combos": args.max_combos, "gpu_type": args.gpu_type,
+                "cost_unit": args.cost_unit, "gpu_share": args.gpu_share
+            },
+            "dsl_kinds": dsl_kinds, "dsl_rules_count": sum(dsl_kinds.values())
+        }
         with (out_dir / "planning.log.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(log, ensure_ascii=False) + "\n")
 
     # 出力形式
     if args.status_format == "text":
-        line = (f"trials={result['estimated_trials']} "
-                f"cost_usd={result['estimated_cost_usd']} "
+        line = (f"trials={result.get('estimated_trials')} "
+                f"cost_usd={result.get('estimated_cost_usd')} "
                 f"status={status_note} "
                 f"budget={args.time_budget} "
-                f"strategy={used_strategy or '-'}").strip()
+                f"strategy={(used_strategy or '-') if status_note=='EXCEEDS_BUDGET' else '-'}").strip()
         print(line)
     else:
         print(json.dumps(result, ensure_ascii=False))
