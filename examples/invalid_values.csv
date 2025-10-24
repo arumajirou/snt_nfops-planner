@@ -1,0 +1,2 @@
+model,param_a,operator,value,param_b,reason
+AutoNHITS,batch_size,>,192,h,メモリ不足の既知事侁E

@@ -1,0 +1,22 @@
+# サンプル仕様ファイル
+models:
+  - name: AutoNHITS
+    active: true
+    params:
+      h: [24, 48]
+      input_size: [24, 48, 72]
+      batch_size:
+        type: int
+        min: 32
+        max: 256
+        step: 32
+      loss: [MQLoss, DistributionLoss]
+    conditions:
+      - if:
+          loss: DistributionLoss
+        then:
+          distribution: [Normal, StudentT]
+
+common:
+  y_type: [raw, diff]
+  freq: H

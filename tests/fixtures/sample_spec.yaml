@@ -1,0 +1,11 @@
+# チE��ト用サンプル仕槁E
+models:
+  - name: TestModel
+    active: true
+    params:
+      h: [24, 48]
+      batch_size: [32, 64]
+    conditions: []
+
+common:
+  freq: H

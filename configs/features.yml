@@ -1,0 +1,30 @@
+# Feature configuration
+hist:
+  lag: [1, 2, 7, 14]
+  seasonal_lag: [7, 24]
+  rolling:
+    - window: 7
+      ops: [mean, std, min, max]
+    - window: 28
+      ops: [mean]
+  ema: [3, 12]
+
+calendar:
+  - dow
+  - month
+  - is_month_end
+  - jp_holiday
+
+price:
+  pct_change_windows: [1, 7]
+
+promo:
+  flags: [on_off, depth_bucket]
+
+stat:
+  - region
+  - cluster_id
+
+futr:
+  - holiday
+  - planned_price

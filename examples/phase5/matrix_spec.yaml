@@ -1,0 +1,16 @@
+# Training matrix specification
+models:
+  - name: SimpleSeq2Seq
+    active: true
+    params:
+      h: [24, 48]
+      input_size: [48, 72]
+      batch_size: [32, 64]
+      lr: [0.001, 0.0001]
+    conditions: []
+
+training:
+  max_epochs: 10
+  precision: "32"
+  accelerator: "cpu"
+  devices: 1

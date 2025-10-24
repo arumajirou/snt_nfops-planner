@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.8.0
+    ports:
+      - "5000:5000"
+    environment:
+      - BACKEND_STORE_URI=sqlite:///mlflow.db
+      - DEFAULT_ARTIFACT_ROOT=/mlruns
+    volumes:
+      - mlflow-data:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: nfops
+      POSTGRES_PASSWORD: nfops123
+      POSTGRES_DB: nfops_planner
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  mlflow-data:
+  postgres-data:
