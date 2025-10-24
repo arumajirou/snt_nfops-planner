@@ -1,22 +1,22 @@
 {
-  "estimated_trials": 16,
-  "estimated_duration_sec": 26297.6,
-  "estimated_gpu_hours": 7.304888888888889,
-  "estimated_cost_usd": 25.56711111111111,
-  "space_reduction_rate": 0.375,
+  "estimated_trials": 18,
+  "estimated_duration_sec": 31326.640641279355,
+  "estimated_gpu_hours": 8.701844622577598,
+  "estimated_cost_usd": 30.456456179021593,
+  "space_reduction_rate": 0.667,
   "assumptions": [
-    "sec_per_trial~1643.6",
+    "sec_per_trial~1740.3689245155197",
     "gpu_share=1.0",
     "gpu_type=A100",
     "usd_per_gpu_hour=3.5",
-    "invalid_table=applied",
+    "invalid_table=ignored",
     "sec_per_trial_source=learned",
-    "sec_per_trial_ci=[1643.6,1643.6]",
+    "sec_per_trial_ci=[1740.3689245155197,1740.3689245155197]",
     "status=EXCEEDS_BUDGET",
     "reduction_strategy=fanova_importance_shrink"
   ],
-  "total_sec": 26297,
-  "gpu_hours": 7.304722222222222,
-  "cost_usd": 25.566527777777775,
-  "mlflow_run_id": "26b7369ed90c48a7a213c47b31aff450"
+  "total_sec": 31326,
+  "gpu_hours": 8.701666666666666,
+  "cost_usd": 30.45583333333333,
+  "mlflow_run_id": "a372098d57674003b0d02c5f1f1ac635"
 }

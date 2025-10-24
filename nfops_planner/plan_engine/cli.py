@@ -1,6 +1,6 @@
-import nfops_planner.plan_engine.assumptions_hook  # noqa: F401
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+import nfops_planner.plan_engine.assumptions_hook  # noqa: F401
 import argparse, json, sys, time, socket, subprocess, os
 from pathlib import Path
 from typing import Any, Dict, List
