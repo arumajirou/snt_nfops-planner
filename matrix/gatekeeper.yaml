@@ -1,0 +1,8 @@
+﻿# matrix/gatekeeper.yaml
+version: 1
+metrics:
+  smape:
+    max: 0.20     # 昇格上限（<= 0.20 なら昇格）
+  # 将来: baseline との比較やコスト/CO2も併用可能
+policy:
+  require_register_when: "smape <= max"
