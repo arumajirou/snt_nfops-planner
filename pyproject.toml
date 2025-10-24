@@ -35,6 +35,9 @@ optional-dependencies.train = [ "lightning>=2" ]                                
 # パッケージは nfops_* 配下を拾う
 include = [ "nfops_*" ]
 
+[tool.setuptools.package-data]
+nfops_promotion = [ "templates/*.j2" ]
+
 [tool.pytest.ini_options]
 # 余計なプラグインを読まないよう、環境変数と合わせて静かに動かす
 addopts = "-q"

@@ -3,14 +3,14 @@ include LICENSE.txt
 include README.md
 include pyproject.toml
 recursive-include nfops_* *.py
-prune .history
-exclude *.bak.*
-exclude *.broken.*
-exclude *.fixbak.*
+recursive-include nfops_promotion/templates *.j2
 
-# prune local-only artifacts from sdist
-prune build
-prune dist
-recursive-exclude logs *.log
-recursive-exclude preds *.parquet
-exclude monitor/metrics.txt
+# heavy/local-only は配布から除外（必要ならコメントアウト）
+prune docker
+prune grafana
+prune pricing
+prune prometheus
+prune examples
+prune tests
+prune logs
+prune preds

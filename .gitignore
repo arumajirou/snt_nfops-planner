@@ -1,71 +1,24 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-dist/
-*.egg-info/
-.pytest_cache/
-.tox/
-.coverage
-htmlcov/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Project specific
-plan/*.json
-plan/*.html
-logs/*.log
-artifacts/
-mlruns/
-
-# Secrets
-.env
-secrets.yaml
-*.key
-*.pem
-.history/
-*.bak.*
-*.broken.*
-*.fixbak.*
-dist/
-build/
-*.egg-info/
 # == nfops clean ==
-# build artifacts
 build/
 dist/
 *.egg-info/
-# caches
 __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 *.py[cod]
+
 # local runtime outputs
 logs/
 preds/
 monitor/metrics.txt
-# editor/misc
-*.swp
+
+# editors
 .DS_Store
-# backup/accidental
+*.swp
+
+# accidental backups
 *.bak.*
 *.broken.*
 *.fixbak.*
