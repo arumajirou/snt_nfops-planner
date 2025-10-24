@@ -1,2 +1,6 @@
-# Phase 1-min: 未使用（将来フック）
-rules: []
+rules:
+  - model: "AutoNHITS"
+    conditions:
+      batch_size: "== 128"
+      input_size: "== 72"
+    reason: "avoid large batch with long input"

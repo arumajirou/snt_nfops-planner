@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Callable, Tuple
 
-Rule = Dict[str, Any]
+# ルールは {model: str|[str]|None, conditions: {param: expr}, reason: str} の最小DSL
+# expr: "== 32", "!= 64", "<= 128", "in [32,64,128]" などをサポート
 
 _num = re.compile(r"^-?\d+(?:\.\d+)?$")
 
@@ -29,16 +30,16 @@ def _parse_expr(expr: str) -> Callable[[Any], bool]:
             if _num.match(t): vals.append(_to_num(t))
             else: vals.append(t.strip("'\""))
         return lambda x: x in vals
-    # fallback: exact
+    # フォールバック：文字列の完全一致
     return lambda x: str(x) == s
 
 def compile_rules(raw: Dict[str, Any]) -> List[Tuple[List[str], Dict[str, Callable[[Any], bool]], str]]:
     """
-    returns list of tuples: (models, compiled_conditions, reason)
-    models=[] means global.
+    return: List of (models, compiled_conditions, reason)
+      - models: [] は全モデル適用
     """
     rules = []
-    for r in raw.get("rules", []):
+    for r in (raw or {}).get("rules", []):
         models = r.get("model")
         if models is None: model_list: List[str] = []
         elif isinstance(models, str): model_list = [models]
@@ -55,38 +56,43 @@ def expand_param_values(v: Any):
         return list(v)
     if isinstance(v, dict) and {"min","max","step"}.issubset(v.keys()):
         mn, mx, st = v["min"], v["max"], v["step"]
-        if st <= 0 or mx < mn: return []
+        if st == 0: return []
+        if (st > 0 and mx < mn) or (st < 0 and mx > mn): return []
         out = []
         x = mn
         # inclusive stepping
-        while True:
-            out.append(x)
-            x = x + st
-            if (st > 0 and x > mx) or (st < 0 and x < mx):
-                break
+        if st > 0:
+            while x <= mx:
+                out.append(x)
+                x = x + st
+        else:
+            while x >= mx:
+                out.append(x)
+                x = x + st
         return out
+    # スカラー等は固定値扱い
     return [v]
 
 def count_with_invalid(model: Dict[str, Any], compiled_rules, max_enumeration: int = 200000) -> Tuple[int, int, bool]:
-    """returns (valid_count, invalid_count, applied)"""
+    """
+    厳密列挙で invalid を除外してカウントする。
+    return: (valid_count, invalid_count, applied=True/False)
+      applied=False は「閾値超で厳密化をスキップ（=naive）」の意味。
+    """
     name = model.get("name","")
-    params = model.get("params",{})
+    params = model.get("params", {})
     keys = list(params.keys())
     values = [expand_param_values(params[k]) for k in keys]
     total = 1
-    for vs in values:
-        total *= max(1, len(vs))
+    for vs in values: total *= max(1, len(vs))
     if total > max_enumeration:
+        # 閾値超なら厳密フィルタはスキップ
         return total, 0, False
 
-    invalid = 0
-    valid = 0
-    # build fast matcher
     def is_invalid(assign: Dict[str, Any]) -> bool:
         for models, conds, _reason in compiled_rules:
             if models and name not in models:
                 continue
-            # all conditions must hold
             ok = True
             for k, f in conds.items():
                 if k not in assign: ok = False; break
@@ -95,10 +101,10 @@ def count_with_invalid(model: Dict[str, Any], compiled_rules, max_enumeration: i
         return False
 
     from itertools import product
+    invalid = 0
+    valid = 0
     for combo in product(*values):
         assign = dict(zip(keys, combo))
-        if is_invalid(assign):
-            invalid += 1
-        else:
-            valid += 1
+        if is_invalid(assign): invalid += 1
+        else: valid += 1
     return valid, invalid, True
