@@ -4,15 +4,19 @@ on:
   pull_request:
   workflow_dispatch: {}
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # 手動発火と自動発火を別グループ化して相互キャンセルを回避
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'manual' || 'auto' }}
   cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -21,28 +25,40 @@ jobs:
             pyproject.toml
             requirements*.txt
             requirements-dev.txt
+
       - name: Install (dev)
         run: |
           python -m pip install -U pip
           pip install -e .[dev] pytest pytest-xdist "scipy>=1.11"
+
       - name: Collect pip verbose logs
+        run: bash tools/pip-logs-collect.sh || true
+
       - name: Ensure pip log exists
         run: |
           test -f pip-logs/pip_install_verbose.log || { mkdir -p pip-logs; echo no-log > pip-logs/EMPTY.txt; }
-        run: bash tools/pip-logs-collect.sh || true
+
+      # 収集前クラッシュの可視化用（ここでImportError等を拾う）
+      - name: PyTest collect-only (debug)
+        continue-on-error: true
+        run: |
+          pytest --collect-only -vv -m "not heavy" -k "not phase5 and not phase6 and not phase11 and not slow"
+
       - name: PyTest (light & fast)
         run: |
-          pytest -q -m "not heavy" -k "not phase5 and not phase6 and not phase11 and not slow" \
+          pytest -vv -m "not heavy" -k "not phase5 and not phase6 and not phase11 and not slow" \
                  -n auto --dist loadfile --durations=10
+
       - name: Report pip cache hit rate
         run: |
           bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log
           echo '### pip cache hit' >> $GITHUB_STEP_SUMMARY
           cat pip-logs/cache_hit_rate.txt >> $GITHUB_STEP_SUMMARY
+
       - name: Upload pip logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pip-logs-pytest
           path: pip-logs/**
-          if-no-files-found: ignore
+          if-no-files-found: warn
