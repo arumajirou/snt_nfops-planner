@@ -1,3 +1,179 @@
-on:
-  workflow_dispatch:
+name: dq
+on: [push, pull_request, workflow_dispatch]
 
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: pip
+
+      - name: Pip cache (before)
+        run: |
+          {
+            echo "## pip cache (before install)";
+            echo "dir: $(pip cache dir)";
+            pip cache info || true;
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install deps
+        run: |
+          export PIP_NO_COLOR=1
+          set -euxo pipefail
+          python -m pip install -U pip            |& tee -a pip-install.log
+          pip install -e .[dev]                   |& tee -a pip-install.log
+          pip install "pandas>=2.2" "pyarrow>=16" |& tee -a pip-install.log
+
+      - name: Pip cache (after) & hit-rate
+        run: |
+          hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
+          downloads=$(grep -c "Downloading" pip-install.log 2>/dev/null || true)
+          total=$((hits+downloads))
+          if [ "$total" -gt 0 ]; then
+            rate=$(python - <<'PY'
+hits=int("${hits}") if "${hits}".isdigit() else 0
+downloads=int("${downloads}") if "${downloads}".isdigit() else 0
+total=hits+downloads
+print(f"{hits/total:.2%}" if total>0 else "n/a")
+PY
+)
+          else
+            rate="n/a"
+          fi
+          {
+            echo "## pip cache (after install)"
+            pip cache info || true
+            echo
+            echo "### pip install summary"
+            echo "- Using cached: ${hits}"
+            echo "- Downloading : ${downloads}"
+            echo "- Estimated hit rate: ${rate}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload pip logs (smoke)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-logs-smoke
+          path: pip-install.log
+          if-no-files-found: ignore
+
+      - run: command -v dq >/dev/null && dq --help || { echo "dq not found in PATH"; exit 1; }
+      - run: echo "DQ Smoke OK"
+
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: pip
+
+      - name: Pip cache (before)
+        run: |
+          {
+            echo "## pip cache (before install)";
+            echo "dir: $(pip cache dir)";
+            pip cache info || true;
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install deps
+        run: |
+          export PIP_NO_COLOR=1
+          set -euxo pipefail
+          python -m pip install -U pip            |& tee -a pip-install.log
+          pip install -e .[dev]                   |& tee -a pip-install.log
+          pip install "pandas>=2.2" "pyarrow>=16" |& tee -a pip-install.log
+
+      - name: Pip cache (after) & hit-rate
+        run: |
+          hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
+          downloads=$(grep -c "Downloading" pip-install.log 2>/dev/null || true)
+          total=$((hits+downloads))
+          if [ "$total" -gt 0 ]; then
+            rate=$(python - <<'PY'
+hits=int("${hits}") if "${hits}".isdigit() else 0
+downloads=int("${downloads}") if "${downloads}".isdigit() else 0
+total=hits+downloads
+print(f"{hits/total:.2%}" if total>0 else "n/a")
+PY
+)
+          else
+            rate="n/a"
+          fi
+          {
+            echo "## pip cache (after install)"
+            pip cache info || true
+            echo
+            echo "### pip install summary"
+            echo "- Using cached: ${hits}"
+            echo "- Downloading : ${downloads}"
+            echo "- Estimated hit rate: ${rate}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload pip logs (gate, pre-run)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-logs-gate
+          path: pip-install.log
+          if-no-files-found: ignore
+
+      - run: dq --help || true
+
+      - name: Prepare sample.csv
+        run: |
+          python - <<'PY'
+          import pathlib
+          data = pathlib.Path('data')
+          data.mkdir(parents=True, exist_ok=True)
+          csv = data/'sample.csv'
+          pq  = data/'sample.parquet'
+          if pq.exists():
+              import pyarrow.parquet as pqmod
+              pqmod.read_table(pq).to_pandas().to_csv(csv, index=False)
+          elif not csv.exists():
+              with open(csv,'w') as f:
+                  f.write('id,name\n1,alice\n2,bob\n')
+          print('prepared', csv, 'bytes=', csv.stat().st_size)
+          PY
+
+      # --- 重要：ここで必ず実行結果を記録し、ジョブは継続させる ---
+      - name: Run dq (record status, don't fail yet)
+        id: run_dq
+        run: |
+          set +e
+          dq --input data/sample.csv --schema schema/schema.json \
+             --chunksize 50000 --invalid-cap 10000 --invalid-rate-threshold 0.02
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "$code" > .dq_exit_code
+          exit 0
+
+      - name: Upload dq outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dq-outputs
+          path: |
+            outputs/**
+            **/data_profiling.html
+          if-no-files-found: warn
+
+      # ここで最後に失敗を返す（成果物は既にアップロード済み）
+      - name: Fail if dq failed
+        if: always()
+        run: |
+          code="${{ steps.run_dq.outputs.exit_code }}"
+          if [ -z "$code" ] && [ -f .dq_exit_code ]; then code="$(cat .dq_exit_code)"; fi
+          code="${code:-0}"
+          if [ "$code" -ne 0 ]; then
+            echo "dq failed with exit $code"
+            exit "$code"
+          fi

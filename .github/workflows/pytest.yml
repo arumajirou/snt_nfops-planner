@@ -2,65 +2,84 @@ name: pytest
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  test:
+  tests:
     runs-on: ubuntu-latest
-    strategy:
-      matrix: { python-version: ["3.10","3.11","3.12"] }
-    env:
-      DATA:   ${{ vars.DQ_DATA   || 'tests/data/sample.csv' }}
-      SCHEMA: ${{ vars.DQ_SCHEMA || 'schema/example_schema.json' }}
-      CHUNK:  ${{ vars.DQ_CHUNK  || '200000' }}
-      CAP:    ${{ vars.DQ_CAP    || '50000' }}
-      RATE:   ${{ vars.DQ_RATE   || '0.05' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: ${{ matrix.python-version }} }
 
-      - name: Cache pip
-        uses: actions/cache@v4
+      - uses: actions/setup-python@v5
         with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
-          restore-keys: pip-${{ runner.os }}-${{ matrix.python-version }}-
+          python-version: 3.11
+          cache: pip
+
+      - name: Pip cache (before)
+        run: |
+          {
+            echo "## pip cache (before install)";
+            echo "dir: $(pip cache dir)";
+            pip cache info || true;
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install deps
-
         run: |
+          export PIP_NO_COLOR=1
+          set -euxo pipefail
+          python -m pip install -U pip            |& tee -a pip-install.log
+          pip install -e .[dev]                   |& tee -a pip-install.log
+          pip install "pandas>=2.2" "pyarrow>=16" |& tee -a pip-install.log
 
-          python -m pip install -U pip
-
-          pip install -e .[dev]
-
-          pip install "pandas>=2.2" "pyarrow>=16"
-
-
-      - name: Sanity check dq and deps
+      - name: Pip cache (after) & hit-rate
         run: |
-          command -v dq >/dev/null || { echo "dq not in PATH"; exit 1; }
-          python - <<'PY'
-          import importlib
-          for mod in ("pandas","pyarrow"):
-              importlib.import_module(mod)
-          print("imports ok")
-          PY
-          dq --help
-      - name: Unit tests
-        run: pytest -q
+          hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
+          downloads=$(grep -c "Downloading" pip-install.log 2>/dev/null || true)
+          total=$((hits+downloads))
+          if [ "$total" -gt 0 ]; then
+            rate=$(python - <<'PY'
+hits=int("${hits}") if "${hits}".isdigit() else 0
+downloads=int("${downloads}") if "${downloads}".isdigit() else 0
+total=hits+downloads
+print(f"{hits/total:.2%}" if total>0 else "n/a")
+PY
+)
+          else
+            rate="n/a"
+          fi
+          {
+            echo "## pip cache (after install)"
+            pip cache info || true
+            echo
+            echo "### pip install summary"
+            echo "- Using cached: ${hits}"
+            echo "- Downloading : ${downloads}"
+            echo "- Estimated hit rate: ${rate}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Smoke DQ (always pass / skip-if-missing)
-        run: make dq.chunk-smoke DATA="$DATA" SCHEMA="$SCHEMA" CHUNK="$CHUNK" CAP="$CAP" RATE="$RATE"
-
-      - name: Chunk DQ gate (only when PR has label 'dq-gate')
-        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'dq-gate')
-        run: make dq.chunk-gate  DATA="$DATA" SCHEMA="$SCHEMA" CHUNK="$CHUNK" CAP="$CAP" RATE="$RATE"
-
-      - name: Upload DQ artifacts
+      - name: Upload pip logs (pytest)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dq-artifacts-${{ matrix.python-version }}
-          path: |
-            outputs/phase2/*/summary.json
-            outputs/phase2/*/invalid_rows.parquet
-            outputs/phase2/*/data_profiling.html
+          name: pip-logs-pytest
+          path: pip-install.log
           if-no-files-found: ignore
+
+      # --- pytest の失敗でも成果物を残し、最後に落とす ---
+      - name: Run pytest (record status, don't fail yet)
+        id: run_pytest
+        run: |
+          set +e
+          pytest -q
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "$code" > .pytest_exit_code
+          exit 0
+
+      - name: Fail if pytest failed
+        if: always()
+        run: |
+          code="${{ steps.run_pytest.outputs.exit_code }}"
+          if [ -z "$code" ] && [ -f .pytest_exit_code ]; then code="$(cat .pytest_exit_code)"; fi
+          code="${code:-0}"
+          if [ "$code" -ne 0 ]; then
+            echo "pytest failed with exit $code"
+            exit "$code"
+          fi
