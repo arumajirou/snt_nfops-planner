@@ -41,3 +41,7 @@ artifacts/
 # plan runtime logs
 plan/*.json
 plan/*.jsonl
+
+# local backups
+*.bak
+src/**/*.bak

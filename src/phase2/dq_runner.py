@@ -129,7 +129,7 @@ def main():
         }
         Path(outdir/"summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         # 列崩壊時は終了（品質ゲート対象なら非ゼロ）
-        if args.fail-on-invalid:  # 常にFalse（列エラーで即終了させたい場合は拡張可）
+        if args.fail_on_invalid:  # 常にFalse（列エラーで即終了させたい場合は拡張可）
             sys.exit(1)
         return
 
@@ -205,7 +205,7 @@ def main():
         Path(outdir/"summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
         # ゲート
-        if (args.fail-on-invalid and summary["n_invalid_rows"]>0) or \
+        if (args.fail_on_invalid and summary["n_invalid_rows"]>0) or \
            (args.invalid_rate_threshold is not None and invalid_rate >= args.invalid_rate_threshold):
             sys.exit(1)
         return
@@ -241,7 +241,7 @@ def main():
     }
     Path(outdir/"summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    if (args.fail-on-invalid and n_invalid_rows>0) or \
+    if (args.fail_on_invalid and n_invalid_rows>0) or \
        (args.invalid_rate_threshold is not None and invalid_rate >= args.invalid_rate_threshold):
         sys.exit(1)
 
