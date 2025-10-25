@@ -25,3 +25,5 @@
 | P44 | Phase2: MLflow任意連携(--mlflow) | az | 2025-10-25 | 2025-10-25 | 100 | 環境依存 | 失敗はnon-fatal |
 | P45 | Phase2: 雛形推定(datetime/float/allowed/range/required/PK) | az | 2025-10-25 | 2025-10-25 | 100 | 推定過剰 | 閾値/rows調整 |
 | P46 | Phase2: 推定E2Eテスト追加 | az | 2025-10-25 | 2025-10-25 | 100 | データ偏り | サンプル増で安定化 |
+| P47 | Phase2: PK推奨ロジック修正（測定列除外・id/key/code優先） | az | 2025-10-25 | 2025-10-25 | 100 | 一意性の局所性 | 例外ルールの追加 |
+| P48 | Phase2: pandas警告解消（infer_datetime_format撤廃・既知format限定） | az | 2025-10-25 | 2025-10-25 | 100 | 日付多様性 | フォーマット追加 |
