@@ -1,31 +1,51 @@
 name: pytest
 on: [push, pull_request]
+
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+    env:
+      # 既定はここで集中管理（リポジトリ変数 DQ_RATE があればそれを使用）
+      DATA:   tests/data/sample.csv
+      SCHEMA: schema/example_schema.json
+      CHUNK:  "200000"
+      CAP:    "50000"
+      RATE:   ${{ vars.DQ_RATE || '0.05' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: \${{ matrix.python-version }}
+        with: { python-version: ${{ matrix.python-version }} }
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-\${{ runner.os }}-\${{ matrix.python-version }}-\${{ hashFiles('requirements.txt') }}
-          restore-keys: pip-\${{ runner.os }}-\${{ matrix.python-version }}-
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-${{ runner.os }}-${{ matrix.python-version }}-
+
       - run: pip install -U pip && pip install -r requirements.txt
+
       - name: Unit tests
         run: pytest -q
-      - name: Smoke DQ (strict)
+
+      - name: Smoke DQ (strict-columns, always pass)
         run: |
-          bin/dq --input tests/data/sample.csv --schema schema/example_schema.json --strict-columns --profile || true
-      - name: Upload profiling (if any)
+          make dq.chunk-smoke DATA="$DATA" SCHEMA="$SCHEMA" CHUNK="$CHUNK" CAP="$CAP" RATE="$RATE"
+
+      - name: Chunk DQ gate (only when PR has label 'dq-gate')
+        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'dq-gate')
+        run: |
+          make dq.chunk-gate DATA="$DATA" SCHEMA="$SCHEMA" CHUNK="$CHUNK" CAP="$CAP" RATE="$RATE"
+
+      - name: Upload DQ artifacts (optional)
         uses: actions/upload-artifact@v4
         with:
-          name: dq-profile-\${{ matrix.python-version }}
-          path: outputs/phase2/*/data_profiling.html
+          name: dq-artifacts-${{ matrix.python-version }}
+          path: |
+            outputs/phase2/*/summary.json
+            outputs/phase2/*/invalid_rows.parquet
+            outputs/phase2/*/data_profiling.html
           if-no-files-found: ignore
