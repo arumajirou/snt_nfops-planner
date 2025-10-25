@@ -1,5 +1,9 @@
+# .github/workflows/dq.yml（main に置く定義）
 name: dq
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   smoke:
@@ -7,13 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
+        with: { python-version: "3.11", cache: pip }
       - name: Install deps (record status)
         id: install
-        shell: bash
         run: |
           set +e
           export PIP_NO_COLOR=1
@@ -21,12 +21,8 @@ jobs:
           pip install -e '.[dev]'                |& tee -a pip-install.log
           pip install "pandas>=2.2" "pyarrow>=16"|& tee -a pip-install.log
           ec=${PIPESTATUS[0]}
-          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
-          echo "$ec" > .install_exit_code
-          exit 0
-
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"; echo "$ec" > .install_exit_code; exit 0
       - name: Pip cache summary
-        shell: bash
         run: |
           hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
           downloads=$(grep -c "Downloading"  pip-install.log 2>/dev/null || true)
@@ -38,25 +34,28 @@ jobs:
             echo "- Downloading : $downloads"
             echo "- Hit rate    : $rate"
           } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload pip logs (smoke)
         if: always()
         uses: actions/upload-artifact@v4
-        with:
-          name: pip-logs-smoke
-          path: pip-install.log
-          if-no-files-found: ignore
-
+        with: { name: pip-logs-smoke, path: pip-install.log, if-no-files-found: ignore }
       - name: dq presence (non-fatal)
-        shell: bash
-        run: |
-          if command -v dq >/dev/null 2>&1; then dq --help || true; else echo "dq not available; skip"; fi
-
+        run: if command -v dq >/dev/null; then dq --help || true; else echo "dq not available; skip"; fi
       - name: Fail if install failed
         if: always()
-        shell: bash
-        run: |
-          code="${{ steps.install.outputs.exit_code }}"
-          [ -z "$code" ] && [ -f .install_exit_code ] && code="$(cat .install_exit_code)"
-          code="${code:-0}"
-          if [ "$code" -ne 0 ]; then echo "Install failed with exit $code"; exit "$code"; fi
+        run: code="${{ steps.install.outputs.exit_code }}"; [ -z "$code" ] && [ -f .install_exit_code ] && code="$(cat .install_exit_code)"; [ "${code:-0}" -ne 0 ] && { echo "Install failed with exit $code"; exit "$code"; }
+
+  gate:
+    # 手動起動では走らない。PR のみ、ラベルがあり、入出力が存在するときに実行
+    if: >
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'dq-gate') &&
+      hashFiles('schema/**/*.json') != '' &&
+      hashFiles('data/**/*') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -U pip && pip install -e '.[dev]' && pip install "pandas>=2.2" "pyarrow>=16"
+      - name: Run dq
+        run: dq --input data/sample.csv --schema schema/schema.json --chunksize 50000

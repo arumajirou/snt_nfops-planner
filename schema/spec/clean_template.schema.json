@@ -1,0 +1,40 @@
+{
+  "dataset_name": "clean",
+  "primary_keys": [],
+  "columns": [
+    {
+      "name": "unique_id",
+      "dtype": "string",
+      "required": true
+    },
+    {
+      "name": "ds",
+      "dtype": "datetime",
+      "required": true,
+      "datetime_format": "%Y-%m-%d"
+    },
+    {
+      "name": "y",
+      "dtype": "float",
+      "required": true,
+      "range": {
+        "min": 1.0,
+        "max": 2.0
+      }
+    },
+    {
+      "name": "exog_cat",
+      "dtype": "string",
+      "required": true
+    },
+    {
+      "name": "exog_num",
+      "dtype": "int",
+      "required": true,
+      "range": {
+        "min": -5.0,
+        "max": 20.0
+      }
+    }
+  ]
+}
