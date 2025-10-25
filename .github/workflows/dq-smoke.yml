@@ -1,0 +1,55 @@
+name: dq-smoke
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, reopened]
+  workflow_dispatch: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dq:
+    if: contains(github.event.pull_request.labels.*.name, 'dq-gate') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install dq deps (robust)
+        run: |
+          set -euxo pipefail
+          python -m pip install -U pip
+          (pip install -e .[dq]) || pip install -e .
+      - name: Collect pip verbose logs (always)
+        run: |
+          bash tools/pip-logs-collect.sh || true
+          test -f pip-logs/pip_install_verbose.log || { echo "no pip log" > pip-logs/EMPTY.txt; }
+      - name: Prepare sample data & schema (safe default)
+        run: |
+          mkdir -p data schema
+          printf 'unique_id,ds,y\nA,2025-01-01,1.0\nA,2025-01-02,2.0\n' > data/sample.csv
+          cat > schema/schema.json <<'JSON'
+          {"columns":{"unique_id":{"type":"string"},
+                      "ds":{"type":"datetime","tz":"Asia/Tokyo","freq":"D"},
+                      "y":{"type":"number"}}}
+          JSON
+      - name: Run dq smoke (module-run, non-fatal)
+        run: |
+          python -m phase2.dq_runner --input data/sample.csv --schema schema/schema.json --profile --chunksize 200000 || true
+      - name: Upload dq outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: outputs-phase2
+          path: outputs/phase2/**/*
+          if-no-files-found: warn
+      - name: Report pip cache hit rate
+        run: |
+          bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log
+          echo '### pip cache hit (dq-smoke)' >> $GITHUB_STEP_SUMMARY
+          cat pip-logs/cache_hit_rate.txt >> $GITHUB_STEP_SUMMARY
+      - name: Upload pip logs (smoke, always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-logs-smoke
+          path: pip-logs/**
+          if-no-files-found: warn

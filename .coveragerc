@@ -1,0 +1,12 @@
+[run]
+branch = True
+# プロジェクト直下を対象。テストやvenvは除外
+source = .
+omit =
+    tests/*
+    */.venv/*
+    */site-packages/*
+
+[report]
+skip_covered = True
+show_missing = True
