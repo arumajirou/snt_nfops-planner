@@ -29,3 +29,4 @@
 | P48 | Phase2: pandas警告解消（infer_datetime_format撤廃・既知format限定） | az | 2025-10-25 | 2025-10-25 | 100 | 日付多様性 | フォーマット追加 |
 | P49 | Phase2: _suggest_primary_keys 重複定義の解消・pytestでDeprecationをerror化(モジュール限定) | az | 2025-10-25 | 2025-10-25 | 100 | 外部依存に波及 | モジュール限定フィルタ |
 | P50 | Phase2: GX前段ゲート薄ラッパー/Make連結 | az | 2025-10-25 | 2025-10-25 | 100 | 未配置時の誤検知 | 未発見時はskip設計 |
+| P51 | Phase2: MakefileのTAB/変数修正とGE連結の安定化 | az | 2025-10-25 | 2025-10-25 | 100 | エディタ差(スペース化) | __TAB__プレース→sed置換 |
