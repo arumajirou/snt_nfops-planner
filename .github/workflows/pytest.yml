@@ -20,38 +20,47 @@ jobs:
             pip cache info || true;
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Install deps
+      - name: Install deps (record status)
+        id: install
+        shell: bash
         run: |
+          set +e
           export PIP_NO_COLOR=1
-          set -euxo pipefail
-          python -m pip install -U pip            |& tee -a pip-install.log
-          pip install -e .[dev]                   |& tee -a pip-install.log
-          pip install "pandas>=2.2" "pyarrow>=16" |& tee -a pip-install.log
+          (
+            set -e
+            python -m pip install -U pip
+            pip install -e .[dev]
+            pip install "pandas>=2.2" "pyarrow>=16"
+          ) |& tee -a pip-install.log
+          ec=${PIPESTATUS[0]}
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          echo "$ec" > .install_exit_code
+          exit 0
 
       - name: Pip cache (after) & hit-rate
+        shell: bash
         run: |
           hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
-          downloads=$(grep -c "Downloading" pip-install.log 2>/dev/null || true)
+          downloads=$(grep -c "Downloading"  pip-install.log 2>/dev/null || true)
           total=$((hits+downloads))
           if [ "$total" -gt 0 ]; then
-            rate=$(python - <<'PY'
-hits=int("${hits}") if "${hits}".isdigit() else 0
-downloads=int("${downloads}") if "${downloads}".isdigit() else 0
-total=hits+downloads
-print(f"{hits/total:.2%}" if total>0 else "n/a")
+            rate=$(python3 - <<PY
+hits=$hits
+total=$total
+print(f"{hits/total:.2%}")
 PY
 )
           else
             rate="n/a"
           fi
           {
-            echo "## pip cache (after install)"
-            pip cache info || true
-            echo
-            echo "### pip install summary"
-            echo "- Using cached: ${hits}"
-            echo "- Downloading : ${downloads}"
-            echo "- Estimated hit rate: ${rate}"
+            echo "## pip cache (after install)";
+            pip cache info || true;
+            echo "";
+            echo "### pip install summary";
+            echo "- Using cached: ${hits}";
+            echo "- Downloading : ${downloads}";
+            echo "- Estimated hit rate: ${rate}";
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload pip logs (pytest)
@@ -62,9 +71,9 @@ PY
           path: pip-install.log
           if-no-files-found: ignore
 
-      # --- pytest の失敗でも成果物を残し、最後に落とす ---
       - name: Run pytest (record status, don't fail yet)
         id: run_pytest
+        if: ${{ steps.install.outputs.exit_code == '0' }}
         run: |
           set +e
           pytest -q
@@ -73,13 +82,20 @@ PY
           echo "$code" > .pytest_exit_code
           exit 0
 
-      - name: Fail if pytest failed
+      - name: Fail if install/pytest failed
         if: always()
         run: |
-          code="${{ steps.run_pytest.outputs.exit_code }}"
-          if [ -z "$code" ] && [ -f .pytest_exit_code ]; then code="$(cat .pytest_exit_code)"; fi
-          code="${code:-0}"
-          if [ "$code" -ne 0 ]; then
-            echo "pytest failed with exit $code"
-            exit "$code"
+          code_inst="${{ steps.install.outputs.exit_code }}"
+          [ -z "$code_inst" ] && [ -f .install_exit_code ] && code_inst="$(cat .install_exit_code)"
+          code_inst="${code_inst:-0}"
+
+          code_py="${{ steps.run_pytest.outputs.exit_code }}"
+          [ -z "$code_py" ] && [ -f .pytest_exit_code ] && code_py="$(cat .pytest_exit_code)"
+          code_py="${code_py:-0}"
+
+          if [ "$code_inst" -ne 0 ]; then
+            echo "Install failed with exit $code_inst"; exit "$code_inst"
+          fi
+          if [ "$code_py" -ne 0 ]; then
+            echo "pytest failed with exit $code_py"; exit "$code_py"
           fi
