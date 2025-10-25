@@ -34,6 +34,17 @@ jobs:
 
           pip install "pandas>=2.2" "pyarrow>=16"
 
+
+      - name: Sanity check dq and deps
+        run: |
+          command -v dq >/dev/null || { echo "dq not in PATH"; exit 1; }
+          python - <<'PY'
+          import importlib
+          for mod in ("pandas","pyarrow"):
+              importlib.import_module(mod)
+          print("imports ok")
+          PY
+          dq --help
       - name: Unit tests
         run: pytest -q
 
