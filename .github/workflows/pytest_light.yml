@@ -4,7 +4,6 @@ on:
   pull_request:
   workflow_dispatch: {}
 concurrency:
-  # 手動発火と自動発火を分離（相互に cancel しない）
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
@@ -13,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"  # 外来プラグインは抑止
 
     steps:
       - uses: actions/checkout@v4
@@ -37,22 +36,22 @@ jobs:
         run: bash tools/pip-logs-collect.sh || true
 
       - name: Ensure pip log exists
-        # 早期失敗でも後続ステップ/サマリが落ちないように必ず空ファイルを用意
         run: |
           mkdir -p pip-logs
           : > pip-logs/pip_install_verbose.log
 
-      # 収集前クラッシュの可視化（ImportError などを確実に出す）
+      # === ここが1つ目の修正点：iniのaddoptsを無効化して収集だけ確認 ===
       - name: PyTest collect-only (debug)
         continue-on-error: true
         run: |
-          pytest --collect-only -vv \
+          pytest -o addopts= --collect-only -vv \
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow"
 
+      # === ここが2つ目の修正点：xdistを明示ロード + addopts無効化 ===
       - name: PyTest (light & fast)
         run: |
-          pytest -vv \
+          pytest -o addopts= -p xdist.plugin -vv \
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow" \
                  -n auto --dist loadfile --durations=10
