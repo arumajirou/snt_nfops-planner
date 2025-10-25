@@ -110,9 +110,9 @@ def _infer_dtype_and_meta(name:str, s:pd.Series, *, thr:float=0.6):
         return meta
 
     # 日付（代表パターン → 汎用）
-    patterns = ["%Y-%m-%d","%Y/%m/%d","%Y-%m-%d %H:%M:%S","%Y/%m/%d %H:%M:%S", None]
+    patterns = ["%Y-%m-%d","%Y/%m/%d","%Y-%m-%d %H:%M:%S","%Y/%m/%d %H:%M:%S"]
     for fmt in patterns:
-        parsed = pd.to_datetime(col, format=fmt, errors="coerce") if fmt else pd.to_datetime(col, errors="coerce", infer_datetime_format=True)
+        parsed = pd.to_datetime(col, format=fmt, errors="coerce") if fmt else pd.to_datetime(col, errors="coerce")
         rate_dt = parsed.notna().mean() if len(col)>0 else 0.0
         if rate_dt >= thr:
             meta = {"name":name,"dtype":"datetime","required": float(s.isna().mean())==0.0}
@@ -128,18 +128,19 @@ def _infer_dtype_and_meta(name:str, s:pd.Series, *, thr:float=0.6):
     if allow is not None:
         meta["allowed"] = allow
     return meta
-
 def _suggest_primary_keys(df:pd.DataFrame):
-    cand = []
-    # よくある "unique_id"+"ds"
+    import re as _re
+    # 1) 強い優先: unique_id + ds
     if set(["unique_id","ds"]).issubset(df.columns):
         if not df.duplicated(subset=["unique_id","ds"]).any():
             return ["unique_id","ds"]
-    # 単独ユニーク
-    for c in df.columns:
-        if not df.duplicated(subset=[c]).any():
-            cand.append([c])
-    return cand[0] if cand else []
+    # 2) id/key/code ライクな単独ユニーク
+    prefer = [c for c in df.columns if _re.search(r"(?:^|_)(id|key|code)(?:$|_)", str(c))]
+    for c in prefer:
+        if not df[c].isna().any() and not df.duplicated(subset=[c]).any():
+            return [c]
+    # 3) それ以外は推奨しない（測定列 y 等の誤選択を避ける）
+    return []
 
 def _emit_schema_template(input_path:Path, out_path:str, encoding:str, dataset_name:str, infer_rows:int=10000):
     df, used = _read_with_encoding_auto(input_path, encoding=encoding, nrows=infer_rows)
@@ -341,3 +342,16 @@ def main():
 
 if __name__=="__main__":
     sys.exit(main())
+def _suggest_primary_keys(df:pd.DataFrame):
+    import re as _re
+    # 1) 強い優先: unique_id + ds
+    if set(["unique_id","ds"]).issubset(df.columns):
+        if not df.duplicated(subset=["unique_id","ds"]).any():
+            return ["unique_id","ds"]
+    # 2) id/key/code ライクな単独ユニーク
+    prefer = [c for c in df.columns if _re.search(r"(?:^|_)(id|key|code)(?:$|_)", str(c))]
+    for c in prefer:
+        if not df[c].isna().any() and not df.duplicated(subset=[c]).any():
+            return [c]
+    # 3) それ以外は推奨しない（測定列 y 等の誤選択を避ける）
+    return []
