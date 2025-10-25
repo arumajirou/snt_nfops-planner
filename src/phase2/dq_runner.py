@@ -87,23 +87,68 @@ def _read_with_encoding_auto(path:Path, **kw):
             tried.append((e, str(ex)))
     raise RuntimeError(f"CSV decoding failed. tried={tried}")
 
-def _emit_schema_template(input_path:Path, out_path:str, encoding:str, dataset_name:str):
-    df, used = _read_with_encoding_auto(input_path, encoding=encoding, nrows=1000)
+def _infer_dtype_and_meta(name:str, s:pd.Series, *, thr:float=0.6):
+    """カラムごとの dtype/required/allowed/range を推定"""
+    col = s.dropna()
+    n = len(s)
+    # bool（緩め）
+    _lb = col.astype(str).str.lower()
+    is_bool = (_lb.isin(["true","false","t","f","0","1","yes","no"]).mean() >= thr)
+    if is_bool:
+        return {"name":name,"dtype":"bool","required": float(s.isna().mean())==0.0}
+
+    # 数値
+    nums = pd.to_numeric(col, errors="coerce")
+    rate_num = nums.notna().mean() if len(col)>0 else 0.0
+    if rate_num >= thr:
+        is_floatish = (nums.round(0) != nums).any()
+        rng = {"min": float(nums.min()) if len(nums)>0 else None,
+               "max": float(nums.max()) if len(nums)>0 else None}
+        meta = {"name":name,"dtype": "float" if is_floatish else "int",
+                "required": float(s.isna().mean())==0.0,
+                "range": rng}
+        return meta
+
+    # 日付（代表パターン → 汎用）
+    patterns = ["%Y-%m-%d","%Y/%m/%d","%Y-%m-%d %H:%M:%S","%Y/%m/%d %H:%M:%S", None]
+    for fmt in patterns:
+        parsed = pd.to_datetime(col, format=fmt, errors="coerce") if fmt else pd.to_datetime(col, errors="coerce", infer_datetime_format=True)
+        rate_dt = parsed.notna().mean() if len(col)>0 else 0.0
+        if rate_dt >= thr:
+            meta = {"name":name,"dtype":"datetime","required": float(s.isna().mean())==0.0}
+            if fmt: meta["datetime_format"] = fmt
+            return meta
+
+    # 文字列 + allowed 推定（低カーディナリティなら）
+    nunique = int(col.astype(str).nunique())
+    allow = None
+    if n>0 and (nunique <= 50) and (nunique/ max(n,1) <= 0.2):
+        allow = sorted(col.astype(str).unique().tolist())
+    meta = {"name":name,"dtype":"string","required": float(s.isna().mean())==0.0}
+    if allow is not None:
+        meta["allowed"] = allow
+    return meta
+
+def _suggest_primary_keys(df:pd.DataFrame):
+    cand = []
+    # よくある "unique_id"+"ds"
+    if set(["unique_id","ds"]).issubset(df.columns):
+        if not df.duplicated(subset=["unique_id","ds"]).any():
+            return ["unique_id","ds"]
+    # 単独ユニーク
+    for c in df.columns:
+        if not df.duplicated(subset=[c]).any():
+            cand.append([c])
+    return cand[0] if cand else []
+
+def _emit_schema_template(input_path:Path, out_path:str, encoding:str, dataset_name:str, infer_rows:int=10000):
+    df, used = _read_with_encoding_auto(input_path, encoding=encoding, nrows=infer_rows)
     cols=[]
     for name in df.columns:
-        dt = df[name].dtype
-        if pd.api.types.is_integer_dtype(dt):   t="int"
-        elif pd.api.types.is_float_dtype(dt):   t="float"
-    # noqa
-        elif pd.api.types.is_bool_dtype(dt):    t="bool"
-        elif pd.api.types.is_datetime64_any_dtype(dt): t="datetime"
-        else: t="string"
-        cols.append({"name":name,"dtype":t,"required":False})
-    schema = {
-        "dataset_name": dataset_name or input_path.stem,
-        "primary_keys": [],
-        "columns": cols
-    }
+        meta = _infer_dtype_and_meta(name, df[name], thr=0.6)
+        cols.append(meta)
+    pk = _suggest_primary_keys(df)
+    schema = {"dataset_name": dataset_name or input_path.stem, "primary_keys": pk, "columns": cols}
     text = json.dumps(schema, ensure_ascii=False, indent=2)
     if out_path == "-":
         sys.stdout.write(text)
@@ -126,20 +171,21 @@ def main():
     # 新機能
     ap.add_argument("--emit-schema-template", dest="emit_schema_template", default=None, help="Write inferred schema JSON path or '-' for stdout, then exit")
     ap.add_argument("--dataset-name", dest="dataset_name", default=None, help="dataset_name for schema template")
+    ap.add_argument("--infer-rows", dest="infer_rows", type=int, default=10000, help="Rows to sample for schema inference")
     ap.add_argument("--mlflow", action="store_true", help="(optional) Log metrics/artifacts to MLflow if available")
     args = ap.parse_args()
 
-    # 1) 雛形生成なら最短経路で終了
+    # 1) 雛形生成
     if args.emit_schema_template:
         if not args.input:
             print("[dq] --emit-schema-template には --input が必要です。", file=sys.stderr); sys.exit(2)
         ip = Path(args.input)
         if not ip.exists():
             print(f"[dq] 入力ファイルが見つかりません: {ip}", file=sys.stderr); sys.exit(2)
-        used = _emit_schema_template(ip, args.emit_schema_template, args.encoding, args.dataset_name or (ip.stem if ip else "dataset"))
+        used = _emit_schema_template(ip, args.emit_schema_template, args.encoding, args.dataset_name or (ip.stem if ip else "dataset"), args.infer_rows)
         return 0
 
-    # 2) 入力/スキーマの存在を友好的にチェック（wrapperが無くても安全）
+    # 2) 入力/スキーマ存在チェック
     if not args.input or not args.schema:
         print("[dq] 必須引数 --input と --schema を指定してください。", file=sys.stderr); sys.exit(2)
     input_path = Path(args.input)
@@ -173,7 +219,6 @@ def main():
             "encoding_used": used_enc, "note":"column-level errors only", "invalid_capped": False
         }
         Path(outdir/"summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-        # 列崩壊は品質ゲート対象とせず0終了（必要なら将来フラグ化）
         return 0
 
     # --- 本検証：チャンク or 一括 ---
@@ -211,17 +256,15 @@ def main():
                     invalid_saved += len(invalid)
         if writer is not None: writer.close()
         if invalid_saved == 0:
-            # invalidが無い場合でも空出力
             if pq is not None:
                 pq.write_table(pa.Table.from_pandas(pd.DataFrame(columns=(first_cols or [])+["__errors__"])), outdir/"invalid_rows.parquet")
             else:
                 pd.DataFrame(columns=(first_cols or [])+["__errors__"]).to_parquet(outdir/"invalid_rows.parquet", index=False)
 
-        n_invalid_rows = int(invalid_saved)  # 下限（cap到達時は下限推定）
+        n_invalid_rows = int(invalid_saved)
         invalid_capped = bool(invalid_saved >= args.invalid_cap)
         invalid_rate = float(n_invalid_rows/n_rows) if n_rows>0 else 0.0
 
-        # プロファイル（サンプル）
         if args.profile and sample_df is not None:
             try:
                 from ydata_profiling import ProfileReport
@@ -282,16 +325,12 @@ def main():
                 mlflow.log_metric("n_rows", n_rows)
                 mlflow.log_metric("n_invalid_rows", n_invalid_rows)
                 mlflow.log_metric("invalid_rate", invalid_rate)
-                # アーティファクト
                 mlflow.log_artifact(outdir/"summary.json", artifact_path="dq")
                 ip = outdir/"invalid_rows.parquet"
-                if ip.exists():
-                    mlflow.log_artifact(ip, artifact_path="dq")
+                if ip.exists(): mlflow.log_artifact(ip, artifact_path="dq")
                 hp = outdir/"data_profiling.html"
-                if hp.exists():
-                    mlflow.log_artifact(hp, artifact_path="dq")
+                if hp.exists(): mlflow.log_artifact(hp, artifact_path="dq")
         except Exception as e:
-            # 連携が無くても失敗させない（ログにだけ書き出す）
             Path(outdir/"mlflow.log.txt").write_text(f"mlflow skipped or failed: {e}", encoding="utf-8")
 
     # ゲート
