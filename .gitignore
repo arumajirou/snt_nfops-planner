@@ -51,3 +51,6 @@ assert
 
 # inferred schema outputs
 schema/inferred_*.json
+
+# local overrides
+.env
