@@ -28,7 +28,7 @@ jobs:
           python -m pip install -U pip
           pip install -e .[dev]
           pip install "pandas>=2.2" "pyarrow>=16"
-      - run: dq --version || true
+      - run: dq --help || true
       - run: |
-          dq --input data/sample.parquet --schema schema/schema.json \
+          dq --input data/sample.csv --schema schema/schema.json \
              --chunksize 50000 --invalid-cap 10000 --invalid-rate-threshold 0.02
