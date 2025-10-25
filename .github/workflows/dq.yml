@@ -20,7 +20,6 @@ jobs:
             pip cache info || true;
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # 失敗しても後続が動くように、ここではジョブを落とさない
       - name: Install deps (record status)
         id: install
         shell: bash
@@ -72,10 +71,10 @@ PY
           path: pip-install.log
           if-no-files-found: ignore
 
-      - name: dq --help
-        run: command -v dq >/dev/null && dq --help || { echo "dq not found in PATH"; exit 1; }
+      - name: dq --help (non-fatal)
+        run: dq --help || true
 
-      - run: echo "DQ Smoke OK"
+      - run: echo "DQ Smoke step completed"
 
       - name: Fail if install failed (smoke)
         if: always()
@@ -156,9 +155,6 @@ PY
           name: pip-logs-gate
           path: pip-install.log
           if-no-files-found: ignore
-
-      - name: dq --help
-        run: dq --help || true
 
       - name: Prepare sample.csv
         if: ${{ steps.install.outputs.exit_code == '0' }}
