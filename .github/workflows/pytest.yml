@@ -37,7 +37,9 @@ jobs:
 
       - name: Ensure pip log exists
         run: |
-          test -f pip-logs/pip_install_verbose.log || { mkdir -p pip-logs; echo no-log > pip-logs/EMPTY.txt; }
+          mkdir -p pip-logs
+          # 必須：このファイル名を必ず用意しておく（空ファイルでOK）
+          test -f pip-logs/pip_install_verbose.log || : > pip-logs/pip_install_verbose.log
 
       # 収集前クラッシュの可視化（ImportError などを確実に出す）
       - name: PyTest collect-only (debug)
@@ -51,10 +53,16 @@ jobs:
                  -n auto --dist loadfile --durations=10
 
       - name: Report pip cache hit rate
+        if: always()
         run: |
-          bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log
-          echo '### pip cache hit' >> $GITHUB_STEP_SUMMARY
-          cat pip-logs/cache_hit_rate.txt >> $GITHUB_STEP_SUMMARY
+          if [ -s pip-logs/pip_install_verbose.log ]; then
+            bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log || true
+            echo '### pip cache hit' >> "$GITHUB_STEP_SUMMARY"
+            cat pip-logs/cache_hit_rate.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          else
+            echo '### pip cache hit' >> "$GITHUB_STEP_SUMMARY"
+            echo 'no pip_install_verbose.log (early failure)' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload pip logs
         if: always()
