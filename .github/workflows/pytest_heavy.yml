@@ -49,6 +49,7 @@ jobs:
                  -n auto --dist loadfile --durations=20 \
                  --maxfail=1 \
                  --reruns 1 --reruns-delay 2 \
+                 --junitxml=pytest-report.xml \
                  2>&1 | tee pytest-output.txt || ec=$?
           echo "exitcode=${ec}" >> "$GITHUB_OUTPUT"
 
@@ -62,21 +63,18 @@ jobs:
             /^ERROR collecting[[:space:]]+/ {print $3; exit}
           ' pytest-output.txt 2>/dev/null || true)"
           echo "nodeid=${nodeid}" >> "$GITHUB_OUTPUT"
-
           awk '
             BEGIN{grab=0}
             /^=+ FAILURES =+/ {grab=1; print; next}
             grab && /^=+ .* =+$/ {exit}
             grab {print}
           ' pytest-output.txt > first-failure.txt || true
-
           if [ ! -s first-failure.txt ]; then
             awk '
               /^(ERROR collecting|ERROR: usage: pytest)/ {grab=1}
               grab {print; if(++n>=120) exit}
             ' pytest-output.txt > first-failure.txt || true
           fi
-
           {
             echo "### pytest-heavy first failure (trimmed)"
             echo
@@ -94,7 +92,7 @@ jobs:
               echo "- nodeid: \`${nodeid}\`"
               echo "- local reproduce:"
               echo '  ```bash'
-              echo "  pytest -vv -n 0 --maxfail=1 \"${nodeid}\""
+              echo "  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_rerunfailures -vv -n 0 --maxfail=1 --reruns 1 --reruns-delay 2 \"${nodeid}\""
               echo '  ```'
             else
               echo
@@ -109,13 +107,13 @@ jobs:
           script: |
             const fs = require("fs");
             const marker = "<!-- pytest-heavy-repro -->";
-            const nodeid = `${{ steps.fail.outputs.nodeid }}`;
+            const nodeid = '${{ steps.fail.outputs.nodeid }}';
             const trimmed = fs.existsSync("first-failure.txt")
               ? "```text\n" + fs.readFileSync("first-failure.txt", "utf8").split("\n").slice(0,200).join("\n") + "\n```"
               : "- no failure block detected (likely pre-collection failure)";
             let body = `${marker}\n### pytest-heavy failure summary\n\n${trimmed}\n\n`;
             if (nodeid) {
-              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\npytest -vv -n 0 --maxfail=1 "${nodeid}"\n\`\`\`\n`;
+              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\nPYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_rerunfailures -vv -n 0 --maxfail=1 --reruns 1 --reruns-delay 2 "${nodeid}"\n\`\`\`\n`;
             } else {
               body += `- no FAILED/ERROR collecting lines; likely pre-collection failure\n`;
             }
@@ -129,6 +127,16 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
             }
+
+      - name: Upload heavy artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-heavy-artifacts
+          path: |
+            pytest-report.xml
+            pytest-output.txt
+          if-no-files-found: warn
 
       - name: Finalize job result
         if: always()
