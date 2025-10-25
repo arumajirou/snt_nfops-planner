@@ -1,0 +1,1 @@
+- great-expectations を任意使用。dq_runnerの前段で checkpoint 実行→失敗時はゲート。
