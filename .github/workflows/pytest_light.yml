@@ -1,4 +1,4 @@
-name: pytest
+name: pytest-light
 on:
   push:
   pull_request:
