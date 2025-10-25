@@ -144,8 +144,6 @@ def main():
         first_cols = None
         sample_df = None
 
-        for chunk, _ in [(_read_with_encoding_auto(input_path, encoding=used_enc, chunksize=args.chunksize))][0][0]:
-            pass  # placeholder (防御)
 
         # 実際のチャンク読み（上の防御は破棄して本読み）
         for chunk in pd.read_csv(input_path, encoding=used_enc, chunksize=args.chunksize):
