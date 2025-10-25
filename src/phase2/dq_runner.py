@@ -157,7 +157,7 @@ def main():
                 for k, cnt in err["type"].value_counts().items():
                     checks[k] = checks.get(k, 0) + int(cnt)
                 # invalid抽出（チャンク内rowはローカルindex）
-                if invalid_saved < args.invalid-cap and pq is not None:
+                if invalid_saved < args.invalid_cap and pq is not None:
                     agg = err.dropna(subset=["row"]).groupby("row").apply(
                         lambda g: "; ".join(f"{r.col}:{r.type}" for r in g.itertuples(index=False)),
                         include_groups=False
