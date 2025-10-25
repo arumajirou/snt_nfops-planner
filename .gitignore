@@ -79,3 +79,6 @@ schema/inferred_*.json
 tools/branch-protection.*.backup.json
 .github/workflows/*.yml.bak
 # --- end ---
+.backup_readme/
+=2]
+
