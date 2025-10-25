@@ -1,6 +1,7 @@
 name: pytest-heavy
 on:
   workflow_dispatch: {}
+  workflow_dispatch: {}
   schedule:
     - cron: "0 18 * * *"  # UTC=18:00 → JST=03:00
 jobs:
