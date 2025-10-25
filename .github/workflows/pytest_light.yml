@@ -9,6 +9,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  actions: read  # coverageベースRunのアーティファクト探索に必要
 
 jobs:
   test:
@@ -43,7 +44,7 @@ jobs:
           mkdir -p pip-logs
           : > pip-logs/pip_install_verbose.log
 
-      # 収集前クラッシュ可視化
+      # 収集前クラッシュの可視化
       - name: PyTest collect-only (debug)
         continue-on-error: true
         run: |
@@ -51,7 +52,7 @@ jobs:
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow"
 
-      # 本番（軽テスト + カバレッジ + flaky 1回自動リトライ）
+      # 本番: flaky 1回だけ再実行 + 最初の失敗で停止 + coverage
       - name: PyTest (light & coverage + 1 rerun)
         id: run_pytest
         continue-on-error: true
@@ -62,17 +63,73 @@ jobs:
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow" \
                  -n auto --dist loadfile --durations=10 \
+                 --maxfail=1 \
                  --reruns 1 --reruns-delay 2 \
                  --cov=. --cov-config=.coveragerc \
                  --cov-report=xml:coverage.xml \
-                 --cov-report=html \
+                 --cov-report=term \
                  2>&1 | tee pytest-output.txt || ec=$?
           echo "exitcode=${ec}" >> "$GITHUB_OUTPUT"
 
-      # カバレッジ集計（テスト失敗でもサマリだけは出す）
-      - name: Coverage gate & summary
-        id: cov
-        continue-on-error: true
+      # 失敗ブロックの最小要約 & nodeid 抽出
+      - name: Summarize first failure and nodeid
+        id: fail
+        if: always()
+        run: |
+          set -eu
+          # nodeid (FAILED / ERROR collecting)
+          nodeid="$(awk '
+            /^FAILED[[:space:]]+/           {print $2; exit}
+            /^ERROR collecting[[:space:]]+/ {print $3; exit}
+          ' pytest-output.txt 2>/dev/null || true)"
+          echo "nodeid=${nodeid}" >> "$GITHUB_OUTPUT"
+
+          # 失敗ブロック（最初だけ）抽出
+          awk '
+            BEGIN{grab=0}
+            /^=+ FAILURES =+/ {grab=1; print; next}
+            grab && /^=+ .* =+$/ {exit}     # 次の大見出しで打ち切り
+            grab {print}
+          ' pytest-output.txt > first-failure.txt || true
+
+          if [ ! -s first-failure.txt ]; then
+            # FAILURES セクションが無い場合（collect errorやusage系）、代表的パターンで代替抽出
+            awk '
+              /^(ERROR collecting|ERROR: usage: pytest)/ {grab=1}
+              grab {print; if(++n>=120) exit}
+            ' pytest-output.txt > first-failure.txt || true
+          fi
+
+          # ステップサマリへ短縮版貼付（最大200行）
+          {
+            echo "### pytest first failure (trimmed)"
+            echo
+            if [ -s first-failure.txt ]; then
+              echo '```text'
+              sed -n '1,200p' first-failure.txt
+              echo '```'
+            else
+              echo "- no failure block detected (likely pre-collection failure)"
+            fi
+            echo
+            echo "### pytest failure summary"
+            if [ -n "${nodeid:-}" ]; then
+              echo
+              echo "- nodeid: \`${nodeid}\`"
+              echo "- local reproduce:"
+              echo '  ```bash'
+              echo "  pytest -vv -n 0 --maxfail=1 \"${nodeid}\""
+              echo '  ```'
+            else
+              echo
+              echo "- no FAILED/ERROR collecting lines; likely pre-collection failure"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # coverage% を算出
+      - name: Coverage current
+        id: cov_cur
+        if: always()
         run: |
           set -eu
           if [ -f coverage.xml ]; then
@@ -83,93 +140,91 @@ print(f"{r:.2f}")
 PY
 )
             echo "percent=${pycov}" >> "$GITHUB_OUTPUT"
-            pass=1
-            awk "BEGIN{exit !(${pycov} < ${COV_MIN})}" || pass=0
-            {
-              echo "### coverage"
-              echo ""
-              echo "- total: ${pycov}%"
-              echo "- threshold (COV_MIN): ${COV_MIN}%"
-              if [ $pass -eq 1 ]; then
-                echo ""
-                echo "> ✅ coverage gate passed"
-              else
-                echo ""
-                echo "> ❌ coverage gate failed"
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "gate=$([ $pass -eq 1 ] && echo pass || echo fail)" >> "$GITHUB_OUTPUT"
           else
             echo "percent=" >> "$GITHUB_OUTPUT"
-            echo "gate=skip" >> "$GITHUB_OUTPUT"
-            {
-              echo "### coverage"
-              echo ""
-              echo "- coverage.xml is missing (tests failed before reporting?)"
-            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # 失敗nodeid抽出（FAILED / ERROR collecting の先頭1件）
-      - name: Extract nodeid (from pytest-output)
-        id: nodeid
-        if: always()
-        run: |
-          nodeid=$(awk '
-            /^FAILED[[:space:]]+/           {print $2; exit}
-            /^ERROR collecting[[:space:]]+/ {print $3; exit}
-          ' pytest-output.txt 2>/dev/null || true)
-          echo "nodeid=${nodeid}" >> "$GITHUB_OUTPUT"
-          {
-            echo "### pytest failure summary"
-            echo ""
-            if [ -n "${nodeid}" ]; then
-              echo "- nodeid: \`${nodeid}\`"
-              echo "- local reproduce:"
-              echo '  ```bash'
-              echo "  pytest -vv -n 0 --maxfail=1 \"${nodeid}\""
-              echo '  ```'
-            else
-              echo "- no FAILED/ERROR collecting lines; likely pre-collection failure"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # PRに再現コマンドをコメント（失敗時のみ／pull_request時のみ）
-      - name: Comment nodeid to PR
-        if: always() && github.event_name == 'pull_request' && steps.run_pytest.outputs.exitcode != '0'
+      # base ブランチの直近成功Runから coverage-light アーティファクトを取得（PR時のみ）
+      - name: Find base coverage artifact
+        id: base_run
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const marker = "<!-- pytest-light-nodeid -->";
-            const nodeid = `${{ steps.nodeid.outputs.nodeid }}`;
-            let body = `${marker}\n### pytest failure summary\n\n`;
-            if (nodeid) {
-              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\npytest -vv -n 0 --maxfail=1 "${nodeid}"\n\`\`\`\n`;
-            } else {
-              body += `- no FAILED/ERROR collecting lines; likely pre-collection failure\n`;
-            }
-            const pr = context.payload.pull_request.number;
-            const { data: comments } = await github.rest.issues.listComments({
+            const baseRef = context.payload.pull_request.base.ref;
+            const wf = "pytest-light"; // workflow name
+            const runs = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: pr,
-              per_page: 100
+              workflow_id: wf,
+              branch: baseRef,
+              status: "success",
+              per_page: 1
             });
-            const mine = comments.find(c => c.user.type === "Bot" && c.body?.includes(marker));
-            if (mine) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: mine.id,
-                body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr,
-                body
-              });
-            }
+            const run = runs.data.workflow_runs?.[0];
+            core.setOutput("run_id", run?.id ?? "");
+            if (!run) return;
+            const arts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner, repo: context.repo.repo, run_id: run.id, per_page: 100
+            });
+            const cov = arts.data.artifacts.find(a => a.name === "coverage-light" && !a.expired);
+            core.setOutput("artifact_id", cov?.id ?? "");
+
+      - name: Download base coverage artifact
+        if: github.event_name == 'pull_request' && steps.base_run.outputs.artifact_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const path = require("path");
+            const id = Number("${{ steps.base_run.outputs.artifact_id }}");
+            const res = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner, repo: context.repo.repo,
+              artifact_id: id, archive_format: "zip"
+            });
+            fs.writeFileSync("base_cov.zip", Buffer.from(res.data));
+            console.log("downloaded: base_cov.zip");
+
+      - name: Unzip base coverage
+        if: github.event_name == 'pull_request' && steps.base_run.outputs.artifact_id != ''
+        run: unzip -q base_cov.zip -d base_cov
+
+      - name: Coverage delta summary
+        id: cov_delta
+        if: always()
+        run: |
+          set -eu
+          cur="${{ steps.cov_cur.outputs.percent }}"
+          base=""
+          if [ -f base_cov/coverage.xml ]; then
+            base=$(python - <<'PY'
+import xml.etree.ElementTree as ET
+r=float(ET.parse("base_cov/coverage.xml").getroot().attrib["line-rate"])*100
+print(f"{r:.2f}")
+PY
+)
+          fi
+          delta=""
+          if [ -n "${cur}" ] && [ -n "${base}" ]; then
+            delta=$(python - <<PY
+cur=float("${cur}"); base=float("${base}");
+print(f"{cur-base:+.2f}")
+PY
+)
+          fi
+          echo "base=${base}"  >> "$GITHUB_OUTPUT"
+          echo "delta=${delta}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### coverage"
+            echo
+            echo "- current: ${cur:-N/A}%"
+            if [ -n "${base}" ]; then
+              echo "- base: ${base}%"
+              echo "- delta: ${delta}%"
+            else
+              echo "- base: N/A (no previous artifact found)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage artifacts
         if: always()
@@ -194,11 +249,51 @@ PY
             echo 'no pip_install_verbose.log (early failure)' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # 最終的なジョブ結果を決める（pytest失敗 or coverageゲート失敗）
+      # PRコメント: 再現コマンド + 失敗要約 + coverageΔ（失敗時のみ）
+      - name: Comment to PR (repro + trimmed log + coverage)
+        if: always() && github.event_name == 'pull_request' && steps.run_pytest.outputs.exitcode != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- pytest-light-repro -->";
+            const nodeid = `${{ steps.fail.outputs.nodeid }}`;
+            const trimmed = fs.existsSync("first-failure.txt")
+              ? "```text\n" + fs.readFileSync("first-failure.txt", "utf8").split("\n").slice(0,200).join("\n") + "\n```"
+              : "- no failure block detected (likely pre-collection failure)";
+            const cur = `${{ steps.cov_cur.outputs.percent }}` || "N/A";
+            const base = `${{ steps.cov_delta.outputs.base }}` || "N/A";
+            const delta = `${{ steps.cov_delta.outputs.delta }}` || "N/A";
+            let body = `${marker}\n### pytest-light failure summary\n\n${trimmed}\n\n`;
+            if (nodeid) {
+              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\npytest -vv -n 0 --maxfail=1 "${nodeid}"\n\`\`\`\n\n`;
+            } else {
+              body += `- no FAILED/ERROR collecting lines; likely pre-collection failure\n\n`;
+            }
+            body += `### coverage\n- current: ${cur}%\n- base: ${base}%\n- delta: ${delta}%\n`;
+            const pr = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, per_page: 100
+            });
+            const mine = comments.find(c => c.user.type === "Bot" && c.body?.includes(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
+            }
+
+      # 最終判定（テスト失敗 or coverage gate 失敗）
       - name: Finalize job result
         if: always()
         run: |
           fail=0
           [ "${{ steps.run_pytest.outputs.exitcode }}" != "0" ] && fail=1
-          [ "${{ steps.cov.outputs.gate }}" = "fail" ] && fail=1
+          cur="${{ steps.cov_cur.outputs.percent }}"
+          if [ -n "${cur}" ]; then
+            python - <<PY || fail=1
+cur=float("${cur}"); th=float("${{ env.COV_MIN }}")
+import sys
+sys.exit(0 if cur+1e-9 >= th else 1)
+PY
+          fi
           exit ${fail}
