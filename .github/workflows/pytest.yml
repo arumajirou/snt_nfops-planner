@@ -26,6 +26,9 @@ jobs:
           python -m pip install -U pip
           pip install -e .[dev] pytest pytest-xdist "scipy>=1.11"
       - name: Collect pip verbose logs
+      - name: Ensure pip log exists
+        run: |
+          test -f pip-logs/pip_install_verbose.log || { mkdir -p pip-logs; echo no-log > pip-logs/EMPTY.txt; }
         run: bash tools/pip-logs-collect.sh || true
       - name: PyTest (light & fast)
         run: |
