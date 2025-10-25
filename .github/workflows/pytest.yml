@@ -4,8 +4,8 @@ on:
   pull_request:
   workflow_dispatch: {}
 concurrency:
-  # 手動発火と自動発火を別グループ化して相互キャンセルを回避
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'manual' || 'auto' }}
+  # 手動発火と自動発火を分離（相互に cancel しない）
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 30
     env:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +39,7 @@ jobs:
         run: |
           test -f pip-logs/pip_install_verbose.log || { mkdir -p pip-logs; echo no-log > pip-logs/EMPTY.txt; }
 
-      # 収集前クラッシュの可視化用（ここでImportError等を拾う）
+      # 収集前クラッシュの可視化（ImportError などを確実に出す）
       - name: PyTest collect-only (debug)
         continue-on-error: true
         run: |
