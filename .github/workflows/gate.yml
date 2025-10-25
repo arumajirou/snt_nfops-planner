@@ -1,10 +1,12 @@
 name: gate
-on:
-  pull_request:
-  workflow_dispatch:
-
+on: [pull_request]
 jobs:
-  pass:
+  gate:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "bootstrap gate OK on $GITHUB_REF"
+      - uses: actions/checkout@v4
+      - name: Quick checks
+        run: |
+          git --version
+          python3 -V
+          echo "Gate OK"
