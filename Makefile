@@ -1,3 +1,7 @@
+# --- optional overrides from .env ---
+-include .env
+export DATA SCHEMA CHUNK CAP RATE DQ_ARGS
+.DEFAULT_GOAL := dq.help
 .PHONY: help test dq.sample dq.ge dq.chunk-gate dq.chunk-smoke dq.any dq.template dq.scan preproc.run
 
 # ------- 可変パラメータ（.env で上書き可） -------
@@ -28,6 +32,7 @@ DQ_CHUNK_CMD = bin/dq --input $(DATA) --schema $(SCHEMA) \
 help:
 	@echo "DATA=$(DATA)"; echo "SCHEMA=$(SCHEMA)"; echo "CHUNK=$(CHUNK) CAP=$(CAP) RATE=$(RATE)"
 	@echo "Targets: test | dq.sample | dq.ge | dq.chunk-gate | dq.chunk-smoke | dq.any | dq.template | dq.scan | preproc.run"
+	@echo "Recipes: dq.profile dq.strict dq.profile-strict dq.mlflow dq.mlflow-strict dq.profile-mlflow dq.all"
 
 # ------- 基本 -------
 test:
@@ -74,3 +79,89 @@ preproc.run:
 	  --y-col $(Y_COL) --unique-id $(UID_COL) --ds-col $(DS_COL) \
 	  --transform $(TRANSFORM) --scaler $(SCALER) \
 	  --outdir $(OUTDIR_P3)
+
+.PHONY: dq.profile dq.strict dq.profile-strict dq.mlflow dq.mlflow-strict dq.profile-mlflow dq.all
+
+# 定形レシピ: dq.any に DQ_ARGS を合成して呼ぶ
+dq.profile:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--profile $(DQ_ARGS)"
+
+dq.strict:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--strict-columns $(DQ_ARGS)"
+
+dq.profile-strict:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--profile --strict-columns $(DQ_ARGS)"
+
+dq.mlflow:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--mlflow $(DQ_ARGS)"
+
+dq.mlflow-strict:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--mlflow --strict-columns $(DQ_ARGS)"
+
+dq.profile-mlflow:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--profile --mlflow $(DQ_ARGS)"
+
+dq.all:
+	$(MAKE) dq.any DATA="$(DATA)" SCHEMA="$(SCHEMA)" DQ_ARGS="--profile --strict-columns --mlflow $(DQ_ARGS)"
+
+.PHONY: dq.profile-smoke dq.strict-smoke dq.profile-strict-smoke dq.mlflow-smoke dq.mlflow-strict-smoke dq.profile-mlflow-smoke dq.all-smoke dq.schema-template dq.cmd dq.help
+
+# smoke variants: 失敗を無視して静かに通電確認（CI向け）
+dq.profile-smoke:
+	-@$(MAKE) --no-print-directory -s dq.profile DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+dq.strict-smoke:
+	-@$(MAKE) --no-print-directory -s dq.strict DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+dq.profile-strict-smoke:
+	-@$(MAKE) --no-print-directory -s dq.profile-strict DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+dq.mlflow-smoke:
+	-@$(MAKE) --no-print-directory -s dq.mlflow DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+dq.mlflow-strict-smoke:
+	-@$(MAKE) --no-print-directory -s dq.mlflow-strict DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+dq.profile-mlflow-smoke:
+	-@$(MAKE) --no-print-directory -s dq.profile-mlflow DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+dq.all-smoke:
+	-@$(MAKE) --no-print-directory -s dq.all DATA="$(DATA)" SCHEMA="$(SCHEMA)" || true
+
+# スキーマ雛形生成（DATA から自動で dataset_name を推定）
+DATASET_NAME ?= $(notdir $(basename $(DATA)))
+TEMPLATE_OUT ?= -
+dq.schema-template:
+	bin/dq --input $(DATA) --emit-schema-template $(TEMPLATE_OUT) --dataset-name $(DATASET_NAME)
+
+# デバッグ: 解決後コマンドだけ表示
+dq.cmd:
+	@echo "$(DQ_CHUNK_CMD)"
+	@echo "dq.any → bin/dq --input $(DATA) --schema $(SCHEMA) $(DQ_ARGS)"
+
+# 使い方ダンプ
+
+# ---- quick pattern recipes (override only 1 param) ----
+# 例: make dq.cap-120000  / make dq.rate-0.15  / make dq.chunk-400000
+dq.cap-%:
+	@$(MAKE) dq.chunk-gate CAP=$* DATA="$(DATA)" SCHEMA="$(SCHEMA)" RATE="$(RATE)" CHUNK="$(CHUNK)"
+
+dq.rate-%:
+	@$(MAKE) dq.chunk-gate RATE=$* DATA="$(DATA)" SCHEMA="$(SCHEMA)" CAP="$(CAP)" CHUNK="$(CHUNK)"
+
+dq.chunk-%:
+	@$(MAKE) dq.chunk-gate CHUNK=$* DATA="$(DATA)" SCHEMA="$(SCHEMA)" CAP="$(CAP)" RATE="$(RATE)"
+
+# ---- cleanup ----
+.PHONY: dq.clean
+dq.clean:
+	rm -rf outputs/phase2/* outputs/phase3/* || true
+
+# ---- help に追記（見やすく整列）----
+dq.help:
+	@echo "DATA=$(DATA)  SCHEMA=$(SCHEMA)"
+	@echo "CHUNK=$(CHUNK)  CAP=$(CAP)  RATE=$(RATE)"
+	@echo "Recipes : dq.profile dq.strict dq.profile-strict dq.mlflow dq.mlflow-strict dq.profile-mlflow dq.all"
+	@echo "Smokes  : dq.profile-smoke dq.strict-smoke dq.profile-strict-smoke dq.mlflow-smoke dq.mlflow-strict-smoke dq.profile-mlflow-smoke dq.all-smoke"
+	@echo "Patterns: dq.cap-<N> dq.rate-<R> dq.chunk-<N>"
+	@echo "Other   : dq.any dq.chunk-gate dq.chunk-smoke dq.schema-template dq.cmd dq.clean dq.help"
