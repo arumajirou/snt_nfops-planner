@@ -34,3 +34,10 @@ mlruns/
 artifacts/
 logs/
 *.log
+# data outputs
+outputs/
+mlruns/
+artifacts/
+# plan runtime logs
+plan/*.json
+plan/*.jsonl
