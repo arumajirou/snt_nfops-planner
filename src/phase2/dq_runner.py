@@ -342,16 +342,3 @@ def main():
 
 if __name__=="__main__":
     sys.exit(main())
-def _suggest_primary_keys(df:pd.DataFrame):
-    import re as _re
-    # 1) 強い優先: unique_id + ds
-    if set(["unique_id","ds"]).issubset(df.columns):
-        if not df.duplicated(subset=["unique_id","ds"]).any():
-            return ["unique_id","ds"]
-    # 2) id/key/code ライクな単独ユニーク
-    prefer = [c for c in df.columns if _re.search(r"(?:^|_)(id|key|code)(?:$|_)", str(c))]
-    for c in prefer:
-        if not df[c].isna().any() and not df.duplicated(subset=[c]).any():
-            return [c]
-    # 3) それ以外は推奨しない（測定列 y 等の誤選択を避ける）
-    return []
