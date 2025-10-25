@@ -75,3 +75,7 @@ schema/inferred_*.json
 *.bak.*
 *.tmp
 *.log
+# --- ops backups (added by ops) ---
+tools/branch-protection.*.backup.json
+.github/workflows/*.yml.bak
+# --- end ---
