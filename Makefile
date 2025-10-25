@@ -1,15 +1,19 @@
 .PHONY: test dq.sample dq.chunk dq.ge
 
+# parameters
+CHUNK ?= 200000
+CAP   ?= 50000
+RATE  ?= 0.05
+
 test:
-\tpytest -q
+	pytest -q
 
 dq.sample:
-\tbin/dq --input tests/data/sample.csv --schema schema/example_schema.json --profile --strict-columns
+	bin/dq --input tests/data/sample.csv --schema schema/example_schema.json --profile --strict-columns
 
 dq.ge:
-\tbin/gx-run || true
-\tbin/dq --input tests/data/sample.csv --schema schema/example_schema.json --strict-columns
+	bin/gx-run || true
+	bin/dq --input tests/data/sample.csv --schema schema/example_schema.json --strict-columns
 
 dq.chunk:
-\tCHUNK?=200000; CAP?=50000; RATE?=0.05; \\
-\tbin/dq --input tests/data/sample.csv --schema schema/example_schema.json --chunksize $$CHUNK --invalid-cap $$CAP --invalid-rate-threshold $$RATE
+	bin/dq --input tests/data/sample.csv --schema schema/example_schema.json --chunksize $(CHUNK) --invalid-cap $(CAP) --invalid-rate-threshold $(RATE)
