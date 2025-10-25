@@ -48,13 +48,10 @@ jobs:
         run: |
           hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
           downloads=$(grep -c "Downloading"  pip-install.log 2>/dev/null || true)
-          total=$((hits+downloads)); rate="n/a"
+          total=$((hits+downloads))
+          rate="n/a"
           if [ "$total" -gt 0 ]; then
-            rate=$(python3 - <<PY
-hits=$hits; total=$total
-print(f"{hits/total:.2%}")
-PY
-)
+            rate=$(awk -v h="$hits" -v t="$total" 'BEGIN{if(t>0) printf "%.2f%%",(h/t)*100; else print "n/a"}')
           fi
           {
             echo "## pip cache (after install)";
@@ -115,16 +112,14 @@ PY
           set -e
           if command -v dq >/dev/null 2>&1; then
             echo "cmd=dq" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          python - <<'PY' && echo "cmd=python -m dq" >> "$GITHUB_OUTPUT" && exit 0 || true
-import importlib, sys
-m = importlib.import_module("dq")
-print("dq module OK", file=sys.stderr)
+          elif python - <<'PY'
+import importlib; importlib.import_module("dq")
 PY
-          echo "dq CLI not found, and python -m dq also unavailable" >&2
-          # bootstrap 期間は落とさない。アーティファクト収集のため succeed 扱いにする:
-          echo "cmd=echo 'dq unavailable (skipped)'" >> "$GITHUB_OUTPUT"
+          then
+            echo "cmd=python -m dq" >> "$GITHUB_OUTPUT"
+          else
+            echo "cmd=echo 'dq unavailable (skipped)'" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Prepare sample.csv
         run: |

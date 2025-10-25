@@ -48,13 +48,10 @@ jobs:
         run: |
           hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
           downloads=$(grep -c "Downloading"  pip-install.log 2>/dev/null || true)
-          total=$((hits+downloads)); rate="n/a"
+          total=$((hits+downloads))
+          rate="n/a"
           if [ "$total" -gt 0 ]; then
-            rate=$(python3 - <<PY
-hits=$hits; total=$total
-print(f"{hits/total:.2%}")
-PY
-)
+            rate=$(awk -v h="$hits" -v t="$total" 'BEGIN{if(t>0) printf "%.2f%%",(h/t)*100; else print "n/a"}')
           fi
           {
             echo "## pip cache (after install)";
@@ -84,19 +81,3 @@ PY
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           echo "$code" > .pytest_exit_code
           exit 0
-
-      - name: Fail if install/pytest failed (can be tightened later)
-        if: false   # bootstrap中は落とさない。gate整備後に true に戻す
-        run: |
-          code_inst="${{ steps.install.outputs.exit_code }}"
-          [ -z "$code_inst" ] && [ -f .install_exit_code ] && code_inst="$(cat .install_exit_code)"
-          code_inst="${code_inst:-0}"
-          code_py="${{ steps.run_pytest.outputs.exit_code }}"
-          [ -z "$code_py" ] && [ -f .pytest_exit_code ] && code_py="$(cat .pytest_exit_code)"
-          code_py="${code_py:-0}"
-          if [ "$code_inst" -ne 0 ]; then
-            echo "Install failed with exit $code_inst"; exit "$code_inst"
-          fi
-          if [ "$code_py" -ne 0 ]; then
-            echo "pytest failed with exit $code_py"; exit "$code_py"
-          fi
