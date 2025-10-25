@@ -1,0 +1,23 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [ "setuptools>=64", "wheel" ]
+
+[project]
+name = "nfops-planner"[project.optional-dependencies]
+dev = [ "loguru>=0.7", "psutil>=5", "pytest>=8", "pyyaml>=6" ]
+eval = [ "pandas>=2" ]
+features = [ "pandas>=2" ]
+inference = [ "loguru>=0.7" ]
+monitor = [ "loguru>=0.7", "psutil>=5" ]
+observability = [ "loguru>=0.7", "psutil>=5" ]
+predict = [ "pandas>=2" ]
+
+[project.scripts]
+dq = "src.phase2.dq_runner:main"
+planner = "nfops_planner.plan_engine.cli:main"
+
+
+
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
