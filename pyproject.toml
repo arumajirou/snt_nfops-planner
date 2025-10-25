@@ -22,6 +22,8 @@ classifiers = [
 ]
 dependencies = [  ]
 
+scripts.dq = "src.phase2.dq_runner:main"
+
 scripts.optional-dependencies.dev = [ "loguru>=0.7", "psutil>=5", "pytest>=8", "pyyaml>=6" ]
 scripts.optional-dependencies.eval = [ "pandas>=2" ]
 scripts.optional-dependencies.features = [ "pandas>=2" ]
