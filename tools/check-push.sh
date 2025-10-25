@@ -39,5 +39,5 @@ echo "pr=$(jq -c '.[0]' <<<"$PR_JSON" 2>/dev/null || echo null)"
 
 # 直近 CI
 RUN_JSON=$(gh run list -R "$OWNER/$REPO" --workflow "$WF" --branch "$BR" --limit 1 \
-  --json status,conclusion,headSha,displayTitle,htmlUrl 2>/dev/null || true)
+  --json status,conclusion,headSha,displayTitle,url 2>/dev/null || true)
 echo "ci=$(jq -c '.[0]' <<<"$RUN_JSON" 2>/dev/null || echo null)"
