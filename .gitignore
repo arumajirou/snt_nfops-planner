@@ -45,3 +45,6 @@ plan/*.jsonl
 # local backups
 *.bak
 src/**/*.bak
+
+# misc
+assert
