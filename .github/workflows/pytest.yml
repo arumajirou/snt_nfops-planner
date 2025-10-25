@@ -29,6 +29,7 @@ jobs:
 
       - name: Install (dev)
         run: |
+          set -euxo pipefail
           python -m pip install -U pip
           pip install -e .[dev] pytest pytest-xdist "scipy>=1.11"
 
@@ -38,23 +39,28 @@ jobs:
       - name: Ensure pip log exists
         run: |
           mkdir -p pip-logs
-          # 必須：このファイル名を必ず用意しておく（空ファイルでOK）
-          test -f pip-logs/pip_install_verbose.log || : > pip-logs/pip_install_verbose.log
+          # 空でもよいので必ずこのファイル名を用意（後続で参照）
+          : > pip-logs/pip_install_verbose.log
 
       # 収集前クラッシュの可視化（ImportError などを確実に出す）
       - name: PyTest collect-only (debug)
         continue-on-error: true
         run: |
-          pytest --collect-only -vv -m "not heavy" -k "not phase5 and not phase6 and not phase11 and not slow"
+          pytest --collect-only -vv \
+                 -m "not heavy" \
+                 -k "not phase5 and not phase6 and not phase11 and not slow"
 
       - name: PyTest (light & fast)
         run: |
-          pytest -vv -m "not heavy" -k "not phase5 and not phase6 and not phase11 and not slow" \
+          pytest -vv \
+                 -m "not heavy" \
+                 -k "not phase5 and not phase6 and not phase11 and not slow" \
                  -n auto --dist loadfile --durations=10
 
       - name: Report pip cache hit rate
         if: always()
         run: |
+          set -euxo pipefail
           if [ -s pip-logs/pip_install_verbose.log ]; then
             bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log || true
             echo '### pip cache hit' >> "$GITHUB_STEP_SUMMARY"
