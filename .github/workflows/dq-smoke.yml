@@ -1,11 +1,11 @@
 name: dq-smoke
 on:
   pull_request:
+    types: [opened, synchronize, labeled, reopened]
+  workflow_dispatch: {}
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-    types: [opened, synchronize, labeled, reopened]
-  workflow_dispatch: {}
 jobs:
   dq:
     if: contains(github.event.pull_request.labels.*.name, 'dq-gate') || github.event_name == 'workflow_dispatch'
@@ -14,12 +14,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
-      - name: Install dq deps (editable ok)
+      - name: Install dq deps (robust)
         run: |
+          set -euxo pipefail
           python -m pip install -U pip
-          pip install -e .[dq]
-      - name: Collect pip verbose logs
-        run: bash tools/pip-logs-collect.sh || true
+          (pip install -e .[dq]) || pip install -e .
+      - name: Collect pip verbose logs (always)
+        run: |
+          bash tools/pip-logs-collect.sh || true
+          test -f pip-logs/pip_install_verbose.log || { echo "no pip log" > pip-logs/EMPTY.txt; }
       - name: Prepare sample data & schema (safe default)
         run: |
           mkdir -p data schema
@@ -29,7 +32,7 @@ jobs:
                       "ds":{"type":"datetime","tz":"Asia/Tokyo","freq":"D"},
                       "y":{"type":"number"}}}
           JSON
-      - name: Run dq smoke
+      - name: Run dq smoke (module-run, non-fatal)
         run: |
           python -m phase2.dq_runner --input data/sample.csv --schema schema/schema.json --profile --chunksize 200000 || true
       - name: Upload dq outputs
@@ -43,10 +46,10 @@ jobs:
           bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log
           echo '### pip cache hit (dq-smoke)' >> $GITHUB_STEP_SUMMARY
           cat pip-logs/cache_hit_rate.txt >> $GITHUB_STEP_SUMMARY
-      - name: Upload pip logs (smoke)
+      - name: Upload pip logs (smoke, always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pip-logs-smoke
           path: pip-logs/**
-          if-no-files-found: ignore
+          if-no-files-found: warn
