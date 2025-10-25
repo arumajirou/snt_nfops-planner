@@ -23,3 +23,5 @@
 | P42 | Phase2: invalid_capped導入/友好エラー(EC=2) | az | 2025-10-25 | 2025-10-25 | 100 | 仕様周知不足 | ドキュメント追補 |
 | P43 | Phase2: スキーマ雛形生成(--emit-schema-template) | az | 2025-10-25 | 2025-10-25 | 100 | 推定誤差 | 手修正前提で案内 |
 | P44 | Phase2: MLflow任意連携(--mlflow) | az | 2025-10-25 | 2025-10-25 | 100 | 環境依存 | 失敗はnon-fatal |
+| P45 | Phase2: 雛形推定(datetime/float/allowed/range/required/PK) | az | 2025-10-25 | 2025-10-25 | 100 | 推定過剰 | 閾値/rows調整 |
+| P46 | Phase2: 推定E2Eテスト追加 | az | 2025-10-25 | 2025-10-25 | 100 | データ偏り | サンプル増で安定化 |
