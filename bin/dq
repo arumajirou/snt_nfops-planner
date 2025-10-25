@@ -1,26 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
-input=""; schema=""
+input=""; schema=""; emit=""
 args=()
 while (($#)); do
   case "${1:-}" in
     --input)   input="${2:-}";   args+=("$1" "$2"); shift 2;;
     --schema)  schema="${2:-}";  args+=("$1" "$2"); shift 2;;
+    --emit-schema-template) emit="1"; args+=("$1" "$2"); shift 2;;
     *)         args+=("$1"); shift;;
   esac
 done
-if [[ -z "${input}" || -z "${schema}" ]]; then
-  echo "[dq] 必須引数 --input と --schema を指定してください。" >&2
-  echo "例: bin/dq --input tests/data/sample.csv --schema schema/example_schema.json --strict-columns" >&2
-  exit 2
+
+if [[ -n "${emit:-}" ]]; then
+  # 雛形生成モード：--input のみ必須
+  if [[ -z "${input}" ]]; then
+    echo "[dq] --emit-schema-template には --input が必要です。" >&2
+    exit 2
+  fi
+  if [[ ! -f "${input}" ]]; then
+    echo "[dq] 入力ファイルが見つかりません: ${input}" >&2
+    exit 2
+  fi
+  exec python src/phase2/dq_runner.py "${args[@]}"
+else
+  # 通常モード：--input と --schema が必須
+  if [[ -z "${input}" || -z "${schema}" ]]; then
+    echo "[dq] 必須引数 --input と --schema を指定してください。" >&2
+    echo "例: bin/dq --input tests/data/sample.csv --schema schema/example_schema.json --strict-columns" >&2
+    exit 2
+  fi
+  if [[ ! -f "${input}" ]]; then
+    echo "[dq] 入力ファイルが見つかりません: ${input}" >&2
+    exit 2
+  fi
+  if [[ ! -f "${schema}" ]]; then
+    echo "[dq] スキーマが見つかりません: ${schema}" >&2
+    exit 2
+  fi
+  exec python src/phase2/dq_runner.py "${args[@]}"
 fi
-if [[ ! -f "${input}" ]]; then
-  echo "[dq] 入力ファイルが見つかりません: ${input}" >&2
-  exit 2
-fi
-if [[ ! -f "${schema}" ]]; then
-  echo "[dq] スキーマが見つかりません: ${schema}" >&2
-  echo "例: schema/example_schema.json を使用してください。" >&2
-  exit 2
-fi
-exec python src/phase2/dq_runner.py "${args[@]}"
