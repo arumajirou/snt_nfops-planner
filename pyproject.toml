@@ -30,9 +30,8 @@ optional-dependencies.monitor = [ "loguru>=0.7", "psutil>=5" ]
 optional-dependencies.observability = [ "loguru>=0.7", "psutil>=5" ]
 optional-dependencies.predict = [ "pandas>=2" ]
 optional-dependencies.train = [ "lightning>=2" ]
-
-scripts.dq = "src.phase2.dq_runner:main"
+scripts.dq = "phase2.dq_runner:main"
 
 [tool.setuptools.packages.find]
-where = [ ".", "src" ]
-include = [ "nfops_*", "src", "src.*" ]
+where = [ "", "src" ]
+include = [ "nfops_*", "phase2*" ]
