@@ -48,3 +48,6 @@ src/**/*.bak
 
 # misc
 assert
+
+# inferred schema outputs
+schema/inferred_*.json
