@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+CKPT="${GX_CHECKPOINT:-gx/checkpoints/default.yml}"
+if [[ ! -f "${CKPT}" ]]; then
+  echo "[gx-run] checkpoint not found: ${CKPT} (skip)"; exit 0
+fi
+if ! command -v great_expectations >/dev/null 2>&1; then
+  echo "[gx-run] great_expectations CLI not found (skip)"; exit 0
+fi
+great_expectations --v3-api checkpoint run -n "$(basename "${CKPT%.*}")"

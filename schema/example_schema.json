@@ -1,0 +1,11 @@
+{
+  "dataset_name": "sample_timeseries",
+  "primary_keys": ["unique_id","ds"],
+  "columns": [
+    {"name":"unique_id","dtype":"string","required":true,"regex":"^[A-Za-z0-9_-]{1,32}$"},
+    {"name":"ds","dtype":"datetime","required":true,"datetime_format":"%Y-%m-%d"},
+    {"name":"y","dtype":"float","required":true,"range":{"min":-1e9,"max":1e9}},
+    {"name":"exog_cat","dtype":"string","required":false,"allowed":["A","B","C"]},
+    {"name":"exog_num","dtype":"float","required":false,"range":{"min":0,"max":1000}}
+  ]
+}
