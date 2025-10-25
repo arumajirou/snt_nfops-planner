@@ -37,9 +37,9 @@ jobs:
         run: bash tools/pip-logs-collect.sh || true
 
       - name: Ensure pip log exists
+        # 早期失敗でも後続ステップ/サマリが落ちないように必ず空ファイルを用意
         run: |
           mkdir -p pip-logs
-          # 空でもよいので必ずこのファイル名を用意（後続で参照）
           : > pip-logs/pip_install_verbose.log
 
       # 収集前クラッシュの可視化（ImportError などを確実に出す）
