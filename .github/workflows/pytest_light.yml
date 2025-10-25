@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 30
     env:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      COV_MIN: ${{ vars.COV_MIN || '85' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +30,7 @@ jobs:
         run: |
           set -euxo pipefail
           python -m pip install -U pip
-          pip install -e .[dev] pytest pytest-xdist "scipy>=1.11"
+          pip install -e .[dev] pytest pytest-xdist pytest-cov "scipy>=1.11"
 
       - name: Collect pip verbose logs
         run: bash tools/pip-logs-collect.sh || true
@@ -39,6 +40,7 @@ jobs:
           mkdir -p pip-logs
           : > pip-logs/pip_install_verbose.log
 
+      # 収集前クラッシュ可視化
       - name: PyTest collect-only (debug)
         continue-on-error: true
         run: |
@@ -46,12 +48,53 @@ jobs:
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow"
 
-      - name: PyTest (light & fast)
+      # 本番（軽テスト + カバレッジ）
+      - name: PyTest (light & coverage)
         run: |
           pytest -o addopts= -p xdist.plugin -vv \
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow" \
-                 -n auto --dist loadfile --durations=10
+                 -n auto --dist loadfile --durations=10 \
+                 --cov=. --cov-config=.coveragerc \
+                 --cov-report=xml:coverage.xml \
+                 --cov-report=html
+
+      # しきい値ゲート + PRサマリ
+      - name: Coverage gate & summary
+        run: |
+          set -eu
+          pycov=$(python - <<'PY'
+import xml.etree.ElementTree as ET
+r=float(ET.parse("coverage.xml").getroot().attrib["line-rate"])*100
+print(f"{r:.2f}")
+PY
+          )
+          echo "coverage_percent=${pycov}" >> $GITHUB_OUTPUT
+          {
+            echo "### coverage"
+            echo ""
+            echo "- total: ${pycov}%"
+            echo "- threshold (COV_MIN): ${COV_MIN}%"
+            if awk "BEGIN{exit !(${pycov} < ${COV_MIN})}"; then
+              echo ""
+              echo "> ❌ coverage gate failed"
+            else
+              echo ""
+              echo "> ✅ coverage gate passed"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # ゲート判定
+          awk "BEGIN{exit !(${pycov} < ${COV_MIN})}" && exit 1 || true
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-light
+          path: |
+            coverage.xml
+            htmlcov/**
+          if-no-files-found: warn
 
       - name: Report pip cache hit rate
         if: always()
