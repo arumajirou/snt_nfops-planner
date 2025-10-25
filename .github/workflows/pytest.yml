@@ -1,10 +1,13 @@
 name: pytest
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
 jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"   # 余計な外部pytestプラグインの自動読込を禁止して起動高速化
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
