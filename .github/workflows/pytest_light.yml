@@ -1,0 +1,308 @@
+name: pytest-light
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      COV_MIN: ${{ vars.COV_MIN || '85' }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+            requirements-dev.txt
+
+      - name: Install (dev)
+        run: |
+          set -euxo pipefail
+          python -m pip install -U pip
+          pip install -e .[dev] pytest pytest-xdist pytest-cov pytest-rerunfailures "scipy>=1.11"
+
+      - name: Collect pip verbose logs
+        run: bash tools/pip-logs-collect.sh || true
+
+      - name: Ensure pip log exists
+        run: |
+          mkdir -p pip-logs
+          : > pip-logs/pip_install_verbose.log
+
+      # 収集前クラッシュ可視化
+      - name: PyTest collect-only (debug)
+        continue-on-error: true
+        run: |
+          pytest -o addopts= --collect-only -vv \
+                 -m "not heavy" \
+                 -k "not phase5 and not phase6 and not phase11 and not slow"
+
+      # 本番（軽テスト + カバレッジ + flaky 1回再実行）
+      - name: PyTest (light & coverage + 1 rerun)
+        id: run_pytest
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ec=0
+          pytest -o addopts= -p xdist.plugin -p pytest_rerunfailures -vv \
+                 -m "not heavy" \
+                 -k "not phase5 and not phase6 and not phase11 and not slow" \
+                 -n auto --dist loadfile --durations=10 \
+                 --maxfail=1 \
+                 --reruns 1 --reruns-delay 2 \
+                 --cov=. --cov-config=.coveragerc \
+                 --cov-report=xml:coverage.xml \
+                 --cov-report=term \
+                 --cov-report=html \
+                 --junitxml=pytest-report.xml \
+                 2>&1 | tee pytest-output.txt || ec=$?
+          echo "exitcode=${ec}" >> "$GITHUB_OUTPUT"
+
+      - name: Count flakes
+        id: flake
+        if: always()
+        run: |
+          n=$(grep -Ei '(^|\s)RERUN(\s|$)|(^|\s)rerun(\s|$)' pytest-output.txt | wc -l | tr -d ' ')
+          echo "count=${n}" >> "$GITHUB_OUTPUT"
+
+      # 失敗ブロックの最小要約 & nodeid 抽出
+      - name: Summarize first failure and nodeid
+        id: fail
+        if: always()
+        run: |
+          set -eu
+          nodeid="$(awk '
+            /^FAILED[[:space:]]+/           {print $2; exit}
+            /^ERROR collecting[[:space:]]+/ {print $3; exit}
+          ' pytest-output.txt 2>/dev/null || true)"
+          echo "nodeid=${nodeid}" >> "$GITHUB_OUTPUT"
+
+          awk '
+            BEGIN{grab=0}
+            /^=+ FAILURES =+/ {grab=1; print; next}
+            grab && /^=+ .* =+$/ {exit}
+            grab {print}
+          ' pytest-output.txt > first-failure.txt || true
+
+          if [ ! -s first-failure.txt ]; then
+            awk '
+              /^(ERROR collecting|ERROR: usage: pytest)/ {grab=1}
+              grab {print; if(++n>=120) exit}
+            ' pytest-output.txt > first-failure.txt || true
+          fi
+
+          {
+            echo "### pytest first failure (trimmed)"
+            echo
+            if [ -s first-failure.txt ]; then
+              echo '```text'
+              sed -n '1,200p' first-failure.txt
+              echo '```'
+            else
+              echo "- no failure block detected (likely pre-collection failure)"
+            fi
+            echo
+            echo "### pytest failure summary"
+            if [ -n "${nodeid:-}" ]; then
+              echo
+              echo "- nodeid: \`${nodeid}\`"
+              echo "- local reproduce:"
+              echo '  ```bash'
+              echo "  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_rerunfailures -vv -n 0 --maxfail=1 --reruns 1 --reruns-delay 2 \"${nodeid}\""
+              echo '  ```'
+            else
+              echo
+              echo "- no FAILED/ERROR collecting lines; likely pre-collection failure"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # coverage% を算出
+      - name: Coverage current
+        id: cov_cur
+        if: always()
+        run: |
+          set -eu
+          if [ -f coverage.xml ]; then
+            pycov=$(python - <<'PY'
+import xml.etree.ElementTree as ET
+r=float(ET.parse("coverage.xml").getroot().attrib["line-rate"])*100
+print(f"{r:.2f}")
+PY
+)
+            echo "percent=${pycov}" >> "$GITHUB_OUTPUT"
+          else
+            echo "percent=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # base ブランチの直近成功 Run から coverage-light artifact を探す（PR時のみ）
+      - name: Find base coverage artifact
+        id: base_run
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const baseRef = context.payload.pull_request.base.ref;
+            // ファイルパス指定が安定
+            const wf = ".github/workflows/pytest_light.yml";
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: wf,
+              branch: baseRef,
+              status: "success",
+              per_page: 1
+            });
+            const run = runs.data.workflow_runs?.[0];
+            core.setOutput("run_id", run?.id ?? "");
+            if (!run) return;
+            const arts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner, repo: context.repo.repo, run_id: run.id, per_page: 100
+            });
+            const cov = arts.data.artifacts.find(a => a.name === "coverage-light" && !a.expired);
+            core.setOutput("artifact_id", cov?.id ?? "");
+
+      - name: Download base coverage artifact
+        if: github.event_name == 'pull_request' && steps.base_run.outputs.artifact_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const id = Number("${{ steps.base_run.outputs.artifact_id }}");
+            const res = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner, repo: context.repo.repo,
+              artifact_id: id, archive_format: "zip"
+            });
+            fs.writeFileSync("base_cov.zip", Buffer.from(res.data));
+            console.log("downloaded: base_cov.zip");
+
+      - name: Unzip base coverage
+        if: github.event_name == 'pull_request' && steps.base_run.outputs.artifact_id != ''
+        run: unzip -q base_cov.zip -d base_cov
+
+      - name: Coverage delta summary
+        id: cov_delta
+        if: always()
+        run: |
+          set -eu
+          cur="${{ steps.cov_cur.outputs.percent }}"
+          base=""
+          if [ -f base_cov/coverage.xml ]; then
+            base=$(python - <<'PY'
+import xml.etree.ElementTree as ET
+r=float(ET.parse("base_cov/coverage.xml").getroot().attrib["line-rate"])*100
+print(f"{r:.2f}")
+PY
+)
+          fi
+          delta=""
+          if [ -n "${cur}" ] && [ -n "${base}" ]; then
+            delta=$(python - <<PY
+cur=float("${cur}"); base=float("${base}");
+print(f"{cur-base:+.2f}")
+PY
+)
+          fi
+          echo "base=${base}"  >> "$GITHUB_OUTPUT"
+          echo "delta=${delta}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### coverage"
+            echo
+            echo "- current: ${cur:-N/A}%"
+            if [ -n "${base}" ]; then
+              echo "- base: ${base}%"
+              echo "- delta: ${delta}%"
+            else
+              echo "- base: N/A (no previous artifact found)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-light
+          path: |
+            coverage.xml
+            htmlcov/**
+            pytest-report.xml
+            pytest-output.txt
+          if-no-files-found: warn
+
+      - name: Report pip cache hit rate
+        if: always()
+        run: |
+          set -euxo pipefail
+          if [ -s pip-logs/pip_install_verbose.log ]; then
+            bash tools/pip-cache-hit-rate.sh pip-logs/pip_install_verbose.log || true
+            echo '### pip cache hit' >> "$GITHUB_STEP_SUMMARY"
+            cat pip-logs/cache_hit_rate.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          else
+            echo '### pip cache hit' >> "$GITHUB_STEP_SUMMARY"
+            echo 'no pip_install_verbose.log (early failure)' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # 失敗時に PR コメント（再現コマンド/トリム済みログ/coverage/flake数）
+      - name: Comment to PR (repro + trimmed log + coverage)
+        if: always() && github.event_name == 'pull_request' && steps.run_pytest.outputs.exitcode != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- pytest-light-repro -->";
+            const nodeid = '${{ steps.fail.outputs.nodeid }}';
+            const trimmed = fs.existsSync("first-failure.txt")
+              ? "```text\n" + fs.readFileSync("first-failure.txt", "utf8").split("\n").slice(0,200).join("\n") + "\n```"
+              : "- no failure block detected (likely pre-collection failure)";
+            const cur = '${{ steps.cov_cur.outputs.percent }}' || "N/A";
+            const base = '${{ steps.cov_delta.outputs.base }}' || "N/A";
+            const delta = '${{ steps.cov_delta.outputs.delta }}' || "N/A";
+            const flakes = '${{ steps.flake.outputs.count }}' || "0";
+            let body = `${marker}\n### pytest-light failure summary\n\n${trimmed}\n\n`;
+            if (nodeid) {
+              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\nPYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_rerunfailures -vv -n 0 --maxfail=1 --reruns 1 --reruns-delay 2 "${nodeid}"\n\`\`\`\n\n`;
+            } else {
+              body += `- no FAILED/ERROR collecting lines; likely pre-collection failure\n\n`;
+            }
+            body += `### coverage\n- current: ${cur}%\n- base: ${base}%\n- delta: ${delta}%\n`;
+            body += `\n### flakes\n- reruns detected: ${flakes}\n`;
+            const pr = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, per_page: 100
+            });
+            const mine = comments.find(c => c.user.type === "Bot" && c.body?.includes(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });
+            }
+
+      # 最終判定（テスト失敗 or coverage gate 失敗）
+      - name: Finalize job result
+        if: always()
+        run: |
+          fail=0
+          [ "${{ steps.run_pytest.outputs.exitcode }}" != "0" ] && fail=1
+          cur="${{ steps.cov_cur.outputs.percent }}"
+          if [ -n "${cur}" ]; then
+            python - <<PY || fail=1
+cur=float("${cur}"); th=float("${{ env.COV_MIN }}")
+import sys
+sys.exit(0 if cur+1e-9 >= th else 1)
+PY
+          fi
+          exit ${fail}
