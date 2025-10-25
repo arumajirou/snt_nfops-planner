@@ -1,0 +1,9 @@
+infer:
+  threshold: 0.60
+  datetime_known_formats: ["%Y-%m-%d", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S"]
+allowed:
+  max_card: 50
+  max_rate: 0.20
+gate:
+  invalid_cap: 10000
+  invalid_rate_threshold: 0.02

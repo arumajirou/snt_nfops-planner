@@ -34,3 +34,23 @@ mlruns/
 artifacts/
 logs/
 *.log
+# data outputs
+outputs/
+mlruns/
+artifacts/
+# plan runtime logs
+plan/*.json
+plan/*.jsonl
+
+# local backups
+*.bak
+src/**/*.bak
+
+# misc
+assert
+
+# inferred schema outputs
+schema/inferred_*.json
+
+# local overrides
+.env
