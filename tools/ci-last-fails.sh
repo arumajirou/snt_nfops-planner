@@ -18,8 +18,10 @@ if [[ -n "$RID" ]]; then
   echo "== failed run detail (run_id=$RID) =="
   gh api -H "Accept: application/vnd.github+json" \
     "/repos/$OWNER/$REPO/actions/runs/$RID/jobs?per_page=100" --paginate \
-    -q '.jobs[] | {job:.name, status:.status, conclusion:.conclusion, url:.html_url,
+    -q '.jobs[] | {job_id:.id, job:.name, status:.status, conclusion:.conclusion, url:.html_url,
         failed_steps: ([.steps[] | select(.conclusion=="failure") | {name:.name, number:.number}] // []) }'
+  echo "== tip: show logs of a failed job =="
+  echo "gh run view -R $OWNER/$REPO \$RUN_ID --job <job_id> --log"
 else
   echo "== no failed runs found =="
 fi
