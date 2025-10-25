@@ -12,15 +12,70 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+            setup.cfg
 
-      - name: Install deps
+      - name: Pip cache (before)
         run: |
-          set -euxo pipefail
-          python -m pip install -U pip
-          pip install -e '.[dev]'
-          pip install "pandas>=2.2" "pyarrow>=16"
+          {
+            echo "## pip cache (before install)";
+            echo "dir: $(pip cache dir)";
+            pip cache info || true;
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: dq --help
+      - name: Install deps (record status)
+        id: install
+        shell: bash
+        run: |
+          set +e
+          export PIP_NO_COLOR=1
+          (
+            set -e
+            python -m pip install -U pip
+            pip install -e '.[dev]'
+            pip install "pandas>=2.2" "pyarrow>=16"
+          ) |& tee -a pip-install.log
+          ec=${PIPESTATUS[0]}
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          echo "$ec" > .install_exit_code
+          exit 0
+
+      - name: Pip cache (after) & hit-rate
+        shell: bash
+        run: |
+          hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
+          downloads=$(grep -c "Downloading"  pip-install.log 2>/dev/null || true)
+          total=$((hits+downloads))
+          rate="n/a"
+          if [ "$total" -gt 0 ]; then
+            rate=$(python3 - <<PY
+hits=$hits; total=$total
+print(f"{hits/total:.2%}")
+PY
+)
+          fi
+          {
+            echo "## pip cache (after install)";
+            pip cache info || true;
+            echo "";
+            echo "### pip install summary";
+            echo "- Using cached: ${hits}";
+            echo "- Downloading : ${downloads}";
+            echo "- Estimated hit rate: ${rate}";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload pip logs (smoke)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-logs-smoke
+          path: pip-install.log
+          if-no-files-found: ignore
+
+      - name: dq --help (non-fatal)
         run: dq --help || true
 
   gate:
@@ -31,13 +86,46 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+            setup.cfg
 
-      - name: Install deps
+      - name: Install deps (record status)
+        id: install
+        shell: bash
         run: |
-          set -euxo pipefail
-          python -m pip install -U pip
-          pip install -e '.[dev]'
-          pip install "pandas>=2.2" "pyarrow>=16"
+          set +e
+          export PIP_NO_COLOR=1
+          (
+            set -e
+            python -m pip install -U pip
+            pip install -e '.[dev]'
+            pip install "pandas>=2.2" "pyarrow>=16"
+          ) |& tee -a pip-install.log
+          ec=${PIPESTATUS[0]}
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          echo "$ec" > .install_exit_code
+          exit 0
+
+      - name: Resolve dq command
+        id: dqbin
+        shell: bash
+        run: |
+          set -e
+          if command -v dq >/dev/null 2>&1; then
+            echo "cmd=dq" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python - <<'PY' && echo "cmd=python -m dq" >> "$GITHUB_OUTPUT" && exit 0 || true
+import importlib
+import sys
+m = importlib.import_module("dq")
+print("dq module OK", file=sys.stderr)
+PY
+          echo "dq CLI not found, and python -m dq also unavailable" >&2
+          exit 1
 
       - name: Prepare sample.csv
         run: |
@@ -49,4 +137,22 @@ jobs:
           PY
 
       - name: Run dq
-        run: dq --input data/sample.csv --chunksize 50000
+        run: ${{ steps.dqbin.outputs.cmd }} --input data/sample.csv --chunksize 50000
+
+      - name: Upload dq outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dq-outputs
+          path: |
+            outputs/**
+            **/data_profiling.html
+          if-no-files-found: warn
+
+      - name: Upload pip logs (gate)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-logs-gate
+          path: pip-install.log
+          if-no-files-found: ignore

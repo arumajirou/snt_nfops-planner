@@ -12,13 +12,94 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+            setup.cfg
 
-      - name: Install deps
+      - name: Pip cache (before)
         run: |
-          set -euxo pipefail
-          python -m pip install -U pip
-          pip install -e '.[dev]'
-          pip install "pandas>=2.2" "pyarrow>=16"
+          {
+            echo "## pip cache (before install)";
+            echo "dir: $(pip cache dir)";
+            pip cache info || true;
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run pytest
-        run: pytest -q
+      - name: Install deps (record status)
+        id: install
+        shell: bash
+        run: |
+          set +e
+          export PIP_NO_COLOR=1
+          (
+            set -e
+            python -m pip install -U pip
+            pip install -e '.[dev]'
+            pip install "pandas>=2.2" "pyarrow>=16"
+          ) |& tee -a pip-install.log
+          ec=${PIPESTATUS[0]}
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          echo "$ec" > .install_exit_code
+          exit 0
+
+      - name: Pip cache (after) & hit-rate
+        shell: bash
+        run: |
+          hits=$(grep -c "Using cached" pip-install.log 2>/dev/null || true)
+          downloads=$(grep -c "Downloading"  pip-install.log 2>/dev/null || true)
+          total=$((hits+downloads))
+          rate="n/a"
+          if [ "$total" -gt 0 ]; then
+            rate=$(python3 - <<PY
+hits=$hits; total=$total
+print(f"{hits/total:.2%}")
+PY
+)
+          fi
+          {
+            echo "## pip cache (after install)";
+            pip cache info || true;
+            echo "";
+            echo "### pip install summary";
+            echo "- Using cached: ${hits}";
+            echo "- Downloading : ${downloads}";
+            echo "- Estimated hit rate: ${rate}";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload pip logs (pytest)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-logs-pytest
+          path: pip-install.log
+          if-no-files-found: ignore
+
+      - name: Run pytest (record status)
+        id: run_pytest
+        if: ${{ steps.install.outputs.exit_code == '0' }}
+        run: |
+          set +e
+          pytest -q
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "$code" > .pytest_exit_code
+          exit 0
+
+      - name: Fail if install/pytest failed
+        if: always()
+        run: |
+          code_inst="${{ steps.install.outputs.exit_code }}"
+          [ -z "$code_inst" ] && [ -f .install_exit_code ] && code_inst="$(cat .install_exit_code)"
+          code_inst="${code_inst:-0}"
+
+          code_py="${{ steps.run_pytest.outputs.exit_code }}"
+          [ -z "$code_py" ] && [ -f .pytest_exit_code ] && code_py="$(cat .pytest_exit_code)"
+          code_py="${code_py:-0}"
+
+          if [ "$code_inst" -ne 0 ]; then
+            echo "Install failed with exit $code_inst"; exit "$code_inst"
+          fi
+          if [ "$code_py" -ne 0 ]; then
+            echo "pytest failed with exit $code_py"; exit "$code_py"
+          fi
