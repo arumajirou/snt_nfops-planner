@@ -22,3 +22,4 @@
 - 必須: 欠損率 0% で `required: true`
 - PK 推奨: `unique_id+ds` が重複しなければ推奨、無ければ単独ユニーク列を候補化
 - PK 推奨ヒューリスティック: `["unique_id","ds"]` がユニークなら推奨。次点で `id|key|code` を含む単一列がユニークなら推奨。測定列は推奨しない。
+> **運用メモ**: `_suggest_primary_keys` は単一定義。重複はCIで検出（tests/test_guard_single_def.py）。
