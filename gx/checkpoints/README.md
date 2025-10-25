@@ -1,0 +1,1 @@
+- great-expectations のcheckpointをここに配置。dq_runnerの前段で実行→失敗でゲート。
