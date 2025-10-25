@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# repo-local wrapper -> package entry point
+exec python -m phase2.dq_runner "$@"

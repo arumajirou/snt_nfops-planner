@@ -1,0 +1,4 @@
+unique_id,ds,y,exog_cat,exog_num
+id1,2025-01-01,1.0,A,10
+id1,2025-01-01,2.0,B,20
+bad!,2025-13-40,xxx,Z,-5

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DQ Schema",
+  "type": "object",
+  "required": ["columns"],
+  "properties": {
+    "columns": {
+      "type": "object",
+      "required": ["unique_id","ds","y"],
+      "properties": {
+        "unique_id": {"type":"object","properties":{"type":{"const":"string"}},"required":["type"]},
+        "ds": {"type":"object","properties":{"type":{"const":"datetime"},"tz":{"type":"string"},"freq":{"enum":["D","H","W","M"]}},"required":["type"]},
+        "y": {"type":"object","properties":{"type":{"enum":["number","integer"]},"nullable":{"type":"boolean"}},"required":["type"]}
+      },
+      "additionalProperties": true
+    },
+    "exog": {
+      "type":"object",
+      "properties":{
+        "hist":{"type":"array","items":{"type":"string"}},
+        "futr":{"type":"array","items":{"type":"string"}},
+        "stat":{"type":"array","items":{"type":"string"}}
+      }
+    },
+    "constraints": {"type":"object"}
+  },
+  "additionalProperties": true
+}

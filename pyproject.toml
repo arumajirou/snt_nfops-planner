@@ -29,70 +29,9 @@ optional-dependencies.inference = [ "loguru>=0.7" ]
 optional-dependencies.monitor = [ "loguru>=0.7", "psutil>=5" ]
 optional-dependencies.observability = [ "loguru>=0.7", "psutil>=5" ]
 optional-dependencies.predict = [ "pandas>=2" ]
-optional-dependencies.train = [ "lightning>=2" ]                                     # torch は CUDA/CPU に合わせ個別インストール推奨
-
-scripts.planner = "nfops_planner.plan_engine.cli:main"
+optional-dependencies.train = [ "lightning>=2" ]
+scripts.dq = "phase2.dq_runner:main"
 
 [tool.setuptools.packages.find]
-# パッケージは nfops_* 配下を拾う
-include = [ "nfops_*" ]
-
-[tool.setuptools.package-data]
-nfops_promotion = [ "templates/*.j2" ]
-
-[tool.pytest.ini_options]
-# 余計なプラグインを読まないよう、環境変数と合わせて静かに動かす
-addopts = "-q"
-testpaths = [ "tests" ]
-
-[tool.coverage.run]
-branch = true
-source = [
-  "nfops_eval",
-  "nfops_features",
-  "nfops_inference",
-  "nfops_monitor",
-  "nfops_observability",
-  "nfops_planner",
-  "nfops_predict",
-  "nfops_preprocess",
-  "nfops_promotion",
-  "nfops_train",
-  "nfops_xai",
-]
-omit = [
-  # 生成物/環境
-  "build/*",
-  "dist/*",
-  ".eggs/*",
-  ".tox/*",
-  ".nox/*",
-  ".venv/*",
-  ".mypy_cache/*",
-  ".pytest_cache/*",
-  "**/.ipynb_checkpoints/*",
-  # 薄い __init__（re-export などのみ）。※中身がある __init__ は個別に pragma で除外推奨
-  "**/__init__.py",
-  # CLI/ランナー類（統合テスト対象に回す想定）
-  "**/cli.py",
-  "**/*_runner.py",
-  # ログ設定の薄いラッパ
-  "**/utils/logging_config.py",
-  # テスト
-  "tests/*",
-]
-
-[tool.coverage.report]
-show_missing = true
-skip_covered = true
-skip_empty = true
-precision = 1
-# しきい値を入れるなら↓を有効化（PR で落とす用）
-# fail_under = 30
-
-exclude_lines = [
-  "pragma: no cover",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-  "raise NotImplementedError",
-]
+where = [ "", "src" ]
+include = [ "nfops_*", "phase2*" ]
