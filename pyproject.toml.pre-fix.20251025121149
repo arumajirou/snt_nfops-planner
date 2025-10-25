@@ -3,6 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=64", "wheel" ]
 
 [project]
+scripts = { dq = "src.phase2.dq_runner:main" }
 name = "nfops-planner"
 version = "0.0.0"
 description = "NFOPS planner (temporary minimal metadata)"
@@ -22,16 +23,16 @@ classifiers = [
 ]
 dependencies = [  ]
 
-scripts.dq = "src.phase2.dq_runner:main"
-scripts.optional-dependencies.dev = [ "loguru>=0.7", "psutil>=5", "pytest>=8", "pyyaml>=6" ]
-scripts.optional-dependencies.eval = [ "pandas>=2" ]
-scripts.optional-dependencies.features = [ "pandas>=2" ]
-scripts.optional-dependencies.inference = [ "loguru>=0.7" ]
-scripts.optional-dependencies.monitor = [ "loguru>=0.7", "psutil>=5" ]
-scripts.optional-dependencies.observability = [ "loguru>=0.7", "psutil>=5" ]
-scripts.optional-dependencies.predict = [ "pandas>=2" ]
-scripts.optional-dependencies.train = [ "lightning>=2" ]                                     # torch は CUDA/CPU に合わせ個別インストール推奨
-scripts.scripts.planner = "nfops_planner.plan_engine.cli:main"
+optional-dependencies.dev = [ "loguru>=0.7", "psutil>=5", "pytest>=8", "pyyaml>=6" ]
+optional-dependencies.eval = [ "pandas>=2" ]
+optional-dependencies.features = [ "pandas>=2" ]
+optional-dependencies.inference = [ "loguru>=0.7" ]
+optional-dependencies.monitor = [ "loguru>=0.7", "psutil>=5" ]
+optional-dependencies.observability = [ "loguru>=0.7", "psutil>=5" ]
+optional-dependencies.predict = [ "pandas>=2" ]
+optional-dependencies.train = [ "lightning>=2" ]                                     # torch は CUDA/CPU に合わせ個別インストール推奨
+
+scripts.planner = "nfops_planner.plan_engine.cli:main"
 
 [tool.setuptools.packages.find]
 # パッケージは nfops_* 配下を拾う

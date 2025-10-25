@@ -165,3 +165,14 @@ dq.help:
 	@echo "Smokes  : dq.profile-smoke dq.strict-smoke dq.profile-strict-smoke dq.mlflow-smoke dq.mlflow-strict-smoke dq.profile-mlflow-smoke dq.all-smoke"
 	@echo "Patterns: dq.cap-<N> dq.rate-<R> dq.chunk-<N>"
 	@echo "Other   : dq.any dq.chunk-gate dq.chunk-smoke dq.schema-template dq.cmd dq.clean dq.help"
+
+.PHONY: dq.cap-smoke-% dq.rate-smoke-% dq.chunk-smoke-%
+
+dq.cap-smoke-%:
+\t-@$(MAKE) --no-print-directory -s dq.cap-$* || true
+
+dq.rate-smoke-%:
+\t-@$(MAKE) --no-print-directory -s dq.rate-$* || true
+
+dq.chunk-smoke-%:
+\t-@$(MAKE) --no-print-directory -s dq.chunk-$* || true
