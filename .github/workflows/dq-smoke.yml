@@ -26,4 +26,4 @@ jobs:
           JSON
       - name: Run dq smoke
         run: |
-          python -m phase2.dq_runner --input data/sample.csv --schema schema/schema.json --chunksize 200000 || true
+          python -m phase2.dq_runner --input data/sample.csv --schema schema/schema.json --profile --chunksize 200000 || true
