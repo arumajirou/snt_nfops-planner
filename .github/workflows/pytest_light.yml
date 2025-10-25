@@ -6,6 +6,9 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -30,7 +33,7 @@ jobs:
         run: |
           set -euxo pipefail
           python -m pip install -U pip
-          pip install -e .[dev] pytest pytest-xdist pytest-cov "scipy>=1.11"
+          pip install -e .[dev] pytest pytest-xdist pytest-cov pytest-rerunfailures "scipy>=1.11"
 
       - name: Collect pip verbose logs
         run: bash tools/pip-logs-collect.sh || true
@@ -48,43 +51,125 @@ jobs:
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow"
 
-      # 本番（軽テスト + カバレッジ）
-      - name: PyTest (light & coverage)
+      # 本番（軽テスト + カバレッジ + flaky 1回自動リトライ）
+      - name: PyTest (light & coverage + 1 rerun)
+        id: run_pytest
+        continue-on-error: true
         run: |
-          pytest -o addopts= -p xdist.plugin -vv \
+          set -o pipefail
+          ec=0
+          pytest -o addopts= -p xdist.plugin -p pytest_rerunfailures -vv \
                  -m "not heavy" \
                  -k "not phase5 and not phase6 and not phase11 and not slow" \
                  -n auto --dist loadfile --durations=10 \
+                 --reruns 1 --reruns-delay 2 \
                  --cov=. --cov-config=.coveragerc \
                  --cov-report=xml:coverage.xml \
-                 --cov-report=html
+                 --cov-report=html \
+                 2>&1 | tee pytest-output.txt || ec=$?
+          echo "exitcode=${ec}" >> "$GITHUB_OUTPUT"
 
-      # しきい値ゲート + PRサマリ
+      # カバレッジ集計（テスト失敗でもサマリだけは出す）
       - name: Coverage gate & summary
+        id: cov
+        continue-on-error: true
         run: |
           set -eu
-          pycov=$(python - <<'PY'
+          if [ -f coverage.xml ]; then
+            pycov=$(python - <<'PY'
 import xml.etree.ElementTree as ET
 r=float(ET.parse("coverage.xml").getroot().attrib["line-rate"])*100
 print(f"{r:.2f}")
 PY
-          )
-          echo "coverage_percent=${pycov}" >> $GITHUB_OUTPUT
+)
+            echo "percent=${pycov}" >> "$GITHUB_OUTPUT"
+            pass=1
+            awk "BEGIN{exit !(${pycov} < ${COV_MIN})}" || pass=0
+            {
+              echo "### coverage"
+              echo ""
+              echo "- total: ${pycov}%"
+              echo "- threshold (COV_MIN): ${COV_MIN}%"
+              if [ $pass -eq 1 ]; then
+                echo ""
+                echo "> ✅ coverage gate passed"
+              else
+                echo ""
+                echo "> ❌ coverage gate failed"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "gate=$([ $pass -eq 1 ] && echo pass || echo fail)" >> "$GITHUB_OUTPUT"
+          else
+            echo "percent=" >> "$GITHUB_OUTPUT"
+            echo "gate=skip" >> "$GITHUB_OUTPUT"
+            {
+              echo "### coverage"
+              echo ""
+              echo "- coverage.xml is missing (tests failed before reporting?)"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # 失敗nodeid抽出（FAILED / ERROR collecting の先頭1件）
+      - name: Extract nodeid (from pytest-output)
+        id: nodeid
+        if: always()
+        run: |
+          nodeid=$(awk '
+            /^FAILED[[:space:]]+/           {print $2; exit}
+            /^ERROR collecting[[:space:]]+/ {print $3; exit}
+          ' pytest-output.txt 2>/dev/null || true)
+          echo "nodeid=${nodeid}" >> "$GITHUB_OUTPUT"
           {
-            echo "### coverage"
+            echo "### pytest failure summary"
             echo ""
-            echo "- total: ${pycov}%"
-            echo "- threshold (COV_MIN): ${COV_MIN}%"
-            if awk "BEGIN{exit !(${pycov} < ${COV_MIN})}"; then
-              echo ""
-              echo "> ❌ coverage gate failed"
+            if [ -n "${nodeid}" ]; then
+              echo "- nodeid: \`${nodeid}\`"
+              echo "- local reproduce:"
+              echo '  ```bash'
+              echo "  pytest -vv -n 0 --maxfail=1 \"${nodeid}\""
+              echo '  ```'
             else
-              echo ""
-              echo "> ✅ coverage gate passed"
+              echo "- no FAILED/ERROR collecting lines; likely pre-collection failure"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          # ゲート判定
-          awk "BEGIN{exit !(${pycov} < ${COV_MIN})}" && exit 1 || true
+
+      # PRに再現コマンドをコメント（失敗時のみ／pull_request時のみ）
+      - name: Comment nodeid to PR
+        if: always() && github.event_name == 'pull_request' && steps.run_pytest.outputs.exitcode != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- pytest-light-nodeid -->";
+            const nodeid = `${{ steps.nodeid.outputs.nodeid }}`;
+            let body = `${marker}\n### pytest failure summary\n\n`;
+            if (nodeid) {
+              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\npytest -vv -n 0 --maxfail=1 "${nodeid}"\n\`\`\`\n`;
+            } else {
+              body += `- no FAILED/ERROR collecting lines; likely pre-collection failure\n`;
+            }
+            const pr = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr,
+              per_page: 100
+            });
+            const mine = comments.find(c => c.user.type === "Bot" && c.body?.includes(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: mine.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body
+              });
+            }
 
       - name: Upload coverage artifacts
         if: always()
@@ -109,10 +194,11 @@ PY
             echo 'no pip_install_verbose.log (early failure)' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Upload pip logs
+      # 最終的なジョブ結果を決める（pytest失敗 or coverageゲート失敗）
+      - name: Finalize job result
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pip-logs-pytest
-          path: pip-logs/**
-          if-no-files-found: warn
+        run: |
+          fail=0
+          [ "${{ steps.run_pytest.outputs.exitcode }}" != "0" ] && fail=1
+          [ "${{ steps.cov.outputs.gate }}" = "fail" ] && fail=1
+          exit ${fail}

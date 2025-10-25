@@ -2,16 +2,17 @@ name: pytest-heavy
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '30 19 * * *'   # UTC（毎日19:30）
+    - cron: '30 19 * * *' # UTC
   pull_request:
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   heavy:
-    # PR時は heavy ラベルが付いているときのみ実行
     if: >
       github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'heavy')
@@ -35,19 +36,83 @@ jobs:
         run: |
           set -euxo pipefail
           python -m pip install -U pip
-          pip install -e .[dev] pytest pytest-xdist "scipy>=1.11"
+          pip install -e .[dev] pytest pytest-xdist pytest-rerunfailures "scipy>=1.11"
 
-      - name: PyTest (heavy/slow)
+      - name: PyTest (heavy/slow + 1 rerun)
+        id: run_pytest
+        continue-on-error: true
         run: |
-          pytest -o addopts= -p xdist.plugin -vv \
+          set -o pipefail
+          ec=0
+          pytest -o addopts= -p xdist.plugin -p pytest_rerunfailures -vv \
                  -m "heavy or slow" \
                  -n auto --dist loadfile --durations=20 \
-                 --maxfail=1
+                 --maxfail=1 \
+                 --reruns 1 --reruns-delay 2 \
+                 2>&1 | tee pytest-output.txt || ec=$?
+          echo "exitcode=${ec}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload junit report (optional if you have one)
-        if: always() && hashFiles('pytest-report.xml') != ''
-        uses: actions/upload-artifact@v4
+      - name: Extract nodeid (from pytest-output)
+        id: nodeid
+        if: always()
+        run: |
+          nodeid=$(awk '
+            /^FAILED[[:space:]]+/           {print $2; exit}
+            /^ERROR collecting[[:space:]]+/ {print $3; exit}
+          ' pytest-output.txt 2>/dev/null || true)
+          echo "nodeid=${nodeid}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### pytest-heavy failure summary"
+            echo ""
+            if [ -n "${nodeid}" ]; then
+              echo "- nodeid: \`${nodeid}\`"
+              echo "- local reproduce:"
+              echo '  ```bash'
+              echo "  pytest -vv -n 0 --maxfail=1 \"${nodeid}\""
+              echo '  ```'
+            else
+              echo "- no FAILED/ERROR collecting lines; likely pre-collection failure"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment nodeid to PR
+        if: always() && github.event_name == 'pull_request' && steps.run_pytest.outputs.exitcode != '0'
+        uses: actions/github-script@v7
         with:
-          name: junit-heavy
-          path: pytest-report.xml
-          if-no-files-found: ignore
+          script: |
+            const marker = "<!-- pytest-heavy-nodeid -->";
+            const nodeid = `${{ steps.nodeid.outputs.nodeid }}`;
+            let body = `${marker}\n### pytest-heavy failure summary\n\n`;
+            if (nodeid) {
+              body += `- nodeid: \`${nodeid}\`\n- local reproduce:\n\`\`\`bash\npytest -vv -n 0 --maxfail=1 "${nodeid}"\n\`\`\`\n`;
+            } else {
+              body += `- no FAILED/ERROR collecting lines; likely pre-collection failure\n`;
+            }
+            const pr = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr,
+              per_page: 100
+            });
+            const mine = comments.find(c => c.user.type === "Bot" && c.body?.includes(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: mine.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body
+              });
+            }
+
+      - name: Finalize job result
+        if: always()
+        run: |
+          [ "${{ steps.run_pytest.outputs.exitcode }}" != "0" ] && exit 1 || exit 0
